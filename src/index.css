@@ -188,4 +188,14 @@
   .epg-grid-line {
     @apply absolute top-0 bottom-0 w-px bg-gray-100 dark:bg-slate-700 pointer-events-none;
   }
+
+  /* Dostojne wolne obroty — gwiazda Smart Filter */
+  .animate-spin-slow {
+    animation: spin-slow 3s linear infinite;
+  }
+
+  @keyframes spin-slow {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
+  }
 }

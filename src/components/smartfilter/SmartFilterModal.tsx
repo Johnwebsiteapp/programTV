@@ -32,12 +32,19 @@ interface FilteredProgram {
 const FILMWEB_GENRES = [
   'sci-fi', 'horror', 'animacja', 'dokumentalny', 'fantasy',
   'wojenny', 'western', 'musical', 'erotyczny', 'familijny',
+  'thriller', 'komedia', 'dramat', 'romans', 'przygodowy',
+  'akcja', 'kryminał', 'biograficzny', 'historyczny', 'sportowy',
+  'sensacja', 'psychologiczny', 'czarny humor', 'katastroficzny',
 ];
 
 const COUNTRIES = [
   'Francja', 'Niemcy', 'Wielka Brytania', 'Polska', 'Włochy',
   'Rosja', 'Hiszpania', 'Japonia', 'Korea Południowa', 'Chiny',
   'Indie', 'Australia', 'Meksyk', 'Brazylia', 'Szwecja',
+  'Norwegia', 'Dania', 'Finlandia', 'Holandia', 'Belgia',
+  'Szwajcaria', 'Austria', 'Czechy', 'Węgry', 'Ukraina',
+  'Kanada', 'Argentyna', 'Izrael', 'Iran', 'Tajlandia',
+  'Tajwan', 'Hongkong', 'RPA', 'Turcja', 'Grecja',
 ];
 
 const DAY_NAMES = ['Niedziela', 'Poniedziałek', 'Wtorek', 'Środa', 'Czwartek', 'Piątek', 'Sobota'];
@@ -302,10 +309,38 @@ export function SmartFilterModal({ onClose }: Props) {
         </FilterSection>
       </div>
 
-      {/* Przycisk szukaj */}
+      {/* Podsumowanie aktywnych filtrów + przycisk szukaj */}
       <div className="px-4 pt-3 border-t border-gray-100 dark:border-slate-800 flex-shrink-0"
            style={{ paddingBottom: 'max(16px, env(safe-area-inset-bottom))' }}>
-        <p className="text-xs text-gray-400 text-center mb-3">
+
+        {/* Aktywne filtry jako chipy */}
+        {(criteria.minRating > 0 || criteria.minYear > 1980 || criteria.excludedGenres.length > 0 || criteria.excludedCountries.length > 0) && (
+          <div className="flex flex-wrap gap-1.5 mb-2.5">
+            {criteria.minRating > 0 && (
+              <span className="flex items-center gap-0.5 text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-300 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-700">
+                <Star size={9} className="fill-amber-500 text-amber-500" />
+                ≥ {criteria.minRating.toFixed(1)}
+              </span>
+            )}
+            {criteria.minYear > 1980 && (
+              <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 border border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-700">
+                od {criteria.minYear}
+              </span>
+            )}
+            {criteria.excludedGenres.map(g => (
+              <span key={g} className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-700 border border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-700">
+                ✕ {g}
+              </span>
+            ))}
+            {criteria.excludedCountries.map(c => (
+              <span key={c} className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-700 border border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-700">
+                ✕ {c}
+              </span>
+            ))}
+          </div>
+        )}
+
+        <p className="text-xs text-gray-400 text-center mb-2.5">
           {candidatePrograms.length} programów do sprawdzenia w tym tygodniu
         </p>
         <button
@@ -324,7 +359,7 @@ export function SmartFilterModal({ onClose }: Props) {
   const renderLoading = () => (
     <div className="flex flex-col items-center justify-center flex-1 px-8 gap-5">
       <div className="w-16 h-16 rounded-full bg-primary-50 dark:bg-primary-900/20 flex items-center justify-center">
-        <Sparkles size={28} className="text-primary-600 animate-pulse" />
+        <Sparkles size={28} className="text-primary-600 animate-spin-slow" />
       </div>
       <div className="text-center">
         <p className="font-bold text-gray-900 dark:text-white text-lg mb-1">
@@ -430,7 +465,7 @@ export function SmartFilterModal({ onClose }: Props) {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-xl bg-primary-600 flex items-center justify-center">
-                <Sparkles size={16} className="text-white" />
+                <Sparkles size={16} className={clsx("text-white", phase === 'loading' && "animate-spin-slow")} />
               </div>
               <div>
                 <h2 className="text-base font-bold text-gray-900 dark:text-white leading-tight">
