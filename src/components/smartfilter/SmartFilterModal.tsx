@@ -196,8 +196,8 @@ export function SmartFilterModal({ onClose }: Props) {
 
   // ── Render: panel filtrów ─────────────────────────────────
   const renderFilters = () => (
-    <div className="flex flex-col min-h-0 flex-1">
-      <div className="flex-1 overflow-y-auto min-h-0 px-4 pb-4" style={{ WebkitOverflowScrolling: 'touch' } as React.CSSProperties}>
+    <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', flex: 1, minHeight: 0 }}>
+      <div style={{ flex: 1, overflowY: 'auto', WebkitOverflowScrolling: 'touch', minHeight: 0, padding: '0 16px 16px' } as React.CSSProperties}>
 
         {/* Typ treści */}
         <FilterSection title="Szukaj w" icon={<Tv size={16} />}>
@@ -303,7 +303,7 @@ export function SmartFilterModal({ onClose }: Props) {
       </div>
 
       {/* Przycisk szukaj */}
-      <div className="px-4 pt-3 border-t border-gray-100 dark:border-slate-800"
+      <div className="px-4 pt-3 border-t border-gray-100 dark:border-slate-800 flex-shrink-0"
            style={{ paddingBottom: 'max(16px, env(safe-area-inset-bottom))' }}>
         <p className="text-xs text-gray-400 text-center mb-3">
           {candidatePrograms.length} programów do sprawdzenia w tym tygodniu
