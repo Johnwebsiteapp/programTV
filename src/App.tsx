@@ -1,0 +1,109 @@
+// ============================================================
+// GŁÓWNY KOMPONENT APLIKACJI — TV Stream
+// ============================================================
+
+import { useEffect } from 'react';
+import { useAppStore } from './store/useAppStore';
+import { Header } from './components/layout/Header';
+import { BottomNavigation, SideNavigation } from './components/layout/Navigation';
+import { EPGGrid } from './components/epg/EPGGrid';
+import { FilterBar } from './components/epg/FilterBar';
+import { FavoritesList } from './components/favorites/FavoritesList';
+import { NotificationPanel } from './components/notifications/NotificationPanel';
+import { CategoryManager } from './components/categories/CategoryManager';
+import { ChannelSettings } from './components/channels/ChannelSettings';
+import { SearchView } from './components/search/SearchView';
+import { ProgramModal } from './components/programs/ProgramModal';
+import { ChannelView } from './components/channels/ChannelView';
+import { HomeView } from './components/home/HomeView';
+import { ProfileView } from './components/profile/ProfileView';
+import { rescheduleAllNotifications } from './utils/notificationUtils';
+
+export default function App() {
+  const { activeView, darkMode, loadPrograms, notifications, markNotificationFired } = useAppStore();
+
+  // Ustaw tryb ciemny przy starcie
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', darkMode);
+  }, [darkMode]);
+
+  // Załaduj dane programu TV przy starcie, a potem odświeżaj co 30 minut
+  useEffect(() => {
+    loadPrograms();
+    const interval = setInterval(loadPrograms, 30 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [loadPrograms]);
+
+  // Przywróć zaplanowane powiadomienia po odświeżeniu strony
+  useEffect(() => {
+    const pending = notifications.filter(n => !n.fired && !n.dismissed);
+    rescheduleAllNotifications(pending, markNotificationFired);
+  }, []); // Tylko przy pierwszym renderze
+
+  return (
+    <div className="flex flex-col h-screen bg-gray-50 dark:bg-slate-950 overflow-hidden">
+      {/* Nagłówek */}
+      <Header />
+
+      {/* Główna treść */}
+      <div className="flex flex-1 overflow-hidden">
+        {/* Boczna nawigacja (tylko desktop) */}
+        <SideNavigation />
+
+        {/* Obszar treści */}
+        <main className="flex-1 overflow-hidden flex flex-col min-w-0">
+          {/* Pasek filtrów (tylko w widoku EPG) */}
+          {activeView === 'epg' && <FilterBar />}
+
+          {/* Widoki */}
+          <div className="flex-1 overflow-hidden">
+            {activeView === 'home' && <HomeView />}
+
+            {activeView === 'epg' && <EPGGrid />}
+
+            {activeView === 'favorites' && (
+              <div className="h-full overflow-y-auto">
+                <FavoritesList />
+              </div>
+            )}
+
+            {activeView === 'notifications' && (
+              <div className="h-full overflow-y-auto">
+                <NotificationPanel />
+              </div>
+            )}
+
+            {activeView === 'categories' && (
+              <div className="h-full overflow-y-auto">
+                <CategoryManager />
+              </div>
+            )}
+
+            {activeView === 'channels' && (
+              <div className="h-full overflow-y-auto">
+                <ChannelSettings />
+              </div>
+            )}
+
+            {activeView === 'search' && <SearchView />}
+
+            {activeView === 'profile' && (
+              <div className="h-full overflow-y-auto">
+                <ProfileView />
+              </div>
+            )}
+          </div>
+        </main>
+      </div>
+
+      {/* Dolna nawigacja (mobile) */}
+      <BottomNavigation />
+
+      {/* Modal szczegółów programu */}
+      <ProgramModal />
+
+      {/* Panel kanału (pełny rozkład) */}
+      <ChannelView />
+    </div>
+  );
+}
