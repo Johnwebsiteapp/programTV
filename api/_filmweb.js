@@ -71,7 +71,7 @@ export async function searchFilmweb(title) {
       countries,
       type: filmType.toUpperCase(),
       filmwebUrl: `https://www.filmweb.pl/${filmType}/${filmId}`,
-      poster: posterPath ? `https://fwcdn.pl${posterPath}` : null,
+      poster: posterPath || null,
       synopsis: preview.plot?.synopsis ?? preview.description ?? null,
     };
 

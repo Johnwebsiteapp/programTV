@@ -64,7 +64,7 @@ export default async function handler(req, res) {
             countries: (preview.countries ?? []).map(c => COUNTRY_CODES[c?.code] ?? c?.code ?? '').filter(Boolean),
             type:      preview.entityName ?? 'film',
             filmwebUrl: `https://www.filmweb.pl/film/${id}`,
-            poster:    poster ? `https://fwcdn.pl${poster}` : null,
+            poster:    poster || null,
             synopsis:  preview.plot?.synopsis ?? preview.description ?? null,
           };
         } catch { return null; }
