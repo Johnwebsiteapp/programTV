@@ -377,7 +377,13 @@ export function SmartFilterModal({ onClose }: Props) {
         </FilterSection>
 
         {/* Wyklucz gatunki */}
-        <FilterSection title="Wyklucz gatunki" icon={<Tag size={16} />}>
+        <FilterSection
+          title="Wyklucz gatunki"
+          icon={<Tag size={16} />}
+          onReset={criteria.excludedGenres.length > 0 ? () => {
+            setCriteria(c => { savePrefs({ excludedGenres: [], excludedCountries: c.excludedCountries }); return { ...c, excludedGenres: [] }; });
+          } : undefined}
+        >
           <div className="flex flex-wrap gap-2">
             {FILMWEB_GENRES.map(g => (
               <Chip
@@ -390,15 +396,16 @@ export function SmartFilterModal({ onClose }: Props) {
               />
             ))}
           </div>
-          {criteria.excludedGenres.length > 0 && (
-            <p className="text-xs text-red-500 mt-1.5">
-              Wykluczone: {criteria.excludedGenres.join(', ')}
-            </p>
-          )}
         </FilterSection>
 
         {/* Wyklucz kraje produkcji */}
-        <FilterSection title="Wyklucz kraje produkcji" icon={<Globe size={16} />}>
+        <FilterSection
+          title="Wyklucz kraje produkcji"
+          icon={<Globe size={16} />}
+          onReset={criteria.excludedCountries.length > 0 ? () => {
+            setCriteria(c => { savePrefs({ excludedGenres: c.excludedGenres, excludedCountries: [] }); return { ...c, excludedCountries: [] }; });
+          } : undefined}
+        >
           <div className="flex flex-wrap gap-2">
             {COUNTRIES.map(c => (
               <Chip
@@ -618,12 +625,22 @@ export function SmartFilterModal({ onClose }: Props) {
 
 // ── Komponenty pomocnicze ─────────────────────────────────
 
-function FilterSection({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) {
+function FilterSection({ title, icon, children, onReset }: { title: string; icon: React.ReactNode; children: React.ReactNode; onReset?: () => void }) {
   return (
     <div className="mt-5 first:mt-4">
-      <div className="flex items-center gap-1.5 mb-2.5">
-        <span className="text-primary-600">{icon}</span>
-        <h3 className="text-sm font-bold text-gray-700 dark:text-gray-300">{title}</h3>
+      <div className="flex items-center justify-between mb-2.5">
+        <div className="flex items-center gap-1.5">
+          <span className="text-primary-600">{icon}</span>
+          <h3 className="text-sm font-bold text-gray-700 dark:text-gray-300">{title}</h3>
+        </div>
+        {onReset && (
+          <button
+            onClick={onReset}
+            className="text-[11px] font-semibold text-red-500 hover:text-red-700 transition-colors px-2 py-0.5 rounded-full hover:bg-red-50 dark:hover:bg-red-900/20"
+          >
+            Wyczyść
+          </button>
+        )}
       </div>
       {children}
     </div>
