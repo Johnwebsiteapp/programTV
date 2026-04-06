@@ -337,13 +337,6 @@ function getTemplatesForChannel(channelId: string): ProgramTemplate[] {
         ...FOREIGN_MOVIES.slice(0, 6),
         ...DOCUMENTARIES.slice(0, 4),
       ];
-    case 'tvp3':
-      return [
-        ...NEWS_BLOCKS,
-        ...POLISH_SERIES.slice(0, 6),
-        ...DOCUMENTARIES.slice(3, 8),
-        ...MORNING_SHOWS,
-      ];
     case 'tvn':
       return [
         ...NEWS_BLOCKS.filter(n => n.title.includes('Fakty') || n.title === 'Pogoda'),
@@ -362,7 +355,6 @@ function getTemplatesForChannel(channelId: string): ProgramTemplate[] {
         ...FOREIGN_MOVIES.slice(4, 12),
       ];
     case 'tv4':
-    case 'tv6':
       return [
         ...FOREIGN_MOVIES,
         ...FOREIGN_SERIES,
@@ -375,19 +367,8 @@ function getTemplatesForChannel(channelId: string): ProgramTemplate[] {
         ...NEWS_BLOCKS.slice(0, 4),
         ...DOCUMENTARIES.slice(0, 4),
       ];
-    case 'polsatplay':
-      return [
-        ...FOREIGN_MOVIES,
-        ...ENTERTAINMENT.slice(0, 5),
-        ...SPORT_PROGRAMS.slice(6, 10),
-        ...DOCUMENTARIES.slice(4, 8),
-      ];
     case 'tvpinfo':
     case 'tvn24':
-    case 'polsatnews':
-    case 'tvn24bis':
-    case 'bbcworld':
-    case 'cnn':
       return NEWS_BLOCKS;
     case 'tvn7':
     case 'polsat2':
@@ -398,7 +379,6 @@ function getTemplatesForChannel(channelId: string): ProgramTemplate[] {
         ...FOREIGN_MOVIES.slice(0, 8),
       ];
     case 'axn':
-    case 'axnblack':
     case 'fox':
       return [
         ...FOREIGN_SERIES,
@@ -416,14 +396,6 @@ function getTemplatesForChannel(channelId: string): ProgramTemplate[] {
         ...FOREIGN_MOVIES,
         ...FOREIGN_SERIES.slice(5, 13),
       ];
-    case 'polsatcafe':
-      return [
-        ...ENTERTAINMENT,
-        ...MORNING_SHOWS,
-        ...POLISH_SERIES.slice(10, 14),
-      ];
-    case 'polsatsport':
-    case 'polsatsportpremium':
     case 'tvpsport':
     case 'eurosport1':
     case 'eurosport2':
@@ -441,16 +413,6 @@ function getTemplatesForChannel(channelId: string): ProgramTemplate[] {
         ...POLISH_SERIES.slice(0, 6),
         ...MUSIC_PROGRAMS,
       ];
-    case 'disneychannel':
-    case 'disneyjunior':
-    case 'cartoonnetwork':
-    case 'nickelodeon':
-    case 'minimini':
-      return KIDS_PROGRAMS;
-    case 'mtv':
-    case 'vh1':
-    case 'polsatmusic':
-      return MUSIC_PROGRAMS;
     default:
       return [...FOREIGN_MOVIES, ...FOREIGN_SERIES, ...ENTERTAINMENT];
   }

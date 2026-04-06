@@ -190,17 +190,6 @@ export const CHANNELS: Channel[] = [
 
   // ─── SPORTOWE ─────────────────────────────────────────────
   {
-    id: 'polsatsportpremium',
-    name: 'Polsat Sport Premium',
-    shortName: 'PSPP',
-    logoEmoji: '🏆',
-    category: 'sports',
-    description: 'Polsat Sport Premium — premium sport',
-    isFavorite: false,
-    isVisible: false,
-    sortOrder: 25,
-  },
-  {
     id: 'tvpsport',
     name: 'TVP Sport',
     shortName: 'TVPSPT',
