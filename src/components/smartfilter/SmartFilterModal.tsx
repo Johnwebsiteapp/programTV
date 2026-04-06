@@ -176,9 +176,11 @@ export function SmartFilterModal({ onClose }: Props) {
 
       // Filtr: minimalna ocena Filmweb z tolerancją ±RATING_TOLERANCE (tylko w dół)
       // Np. wybranie 7.0 pokaże filmy z oceną ≥ 6.4
-      if (criteria.minRating > 0) {
+      // WAŻNE: jeśli Filmweb nie znalazł tytułu (fw=null), NIE wykluczamy programu —
+      // pokazujemy go bez oceny, bo może to być polska produkcja nieznana Filmwebowi.
+      if (criteria.minRating > 0 && fw?.rate != null) {
         const effectiveMin = criteria.minRating - RATING_TOLERANCE;
-        if (!fw?.rate || fw.rate < effectiveMin) continue;
+        if (fw.rate < effectiveMin) continue;
       }
 
       if (!passesNonRatingFilters(program, fw)) continue;
@@ -207,7 +209,8 @@ export function SmartFilterModal({ onClose }: Props) {
         const effectiveMin = testRating - RATING_TOLERANCE;
         const count = candidatePrograms.filter(p => {
           const fw = filmwebResults[p.title] ?? null;
-          if (testRating > 0 && (!fw?.rate || fw.rate < effectiveMin)) return false;
+          // Nowa logika: tylko wykluczamy gdy mamy ocenę I jest za niska
+          if (testRating > 0 && fw?.rate != null && fw.rate < effectiveMin) return false;
           return passesNonRatingFilters(p, fw);
         }).length;
         if (count > 0) {

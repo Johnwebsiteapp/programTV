@@ -1,0 +1,10 @@
+{
+  "functions": {
+    "api/epg.js": { "maxDuration": 60 },
+    "api/filmweb/batch.js": { "maxDuration": 30 },
+    "api/filmweb/cinema.js": { "maxDuration": 60 },
+    "api/filmweb/search.js": { "maxDuration": 15 }
+  },
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist"
+}
