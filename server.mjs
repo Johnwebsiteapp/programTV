@@ -570,6 +570,14 @@ if (fs.existsSync(distPath)) {
 // ─── START ────────────────────────────────────────────────
 app.listen(PORT, () => {
   console.log(`[EPG Server] Nasłuchuję na http://localhost:${PORT}`);
+
+  // Wstępnie załaduj dane kinowe w tle (żeby pierwsze żądanie było szybkie)
+  setTimeout(() => {
+    fetch(`http://localhost:${PORT}/api/filmweb/cinema`)
+      .then(r => r.json())
+      .then(d => console.log(`[cinema] Pre-cache: ${d.films?.length ?? 0} filmów`))
+      .catch(e => console.warn('[cinema] Pre-cache error:', e.message));
+  }, 500);
   console.log(`[EPG Server] Endpointy:`);
   console.log(`  GET /api/epg?channelId=tvp1,tvp2&dayOffset=0,1`);
   console.log(`  GET /api/epg/bulk?days=-1,0,1,2,3,4,5,6`);
