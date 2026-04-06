@@ -72,7 +72,11 @@ export default async function handler(req, res) {
       details.push(...batchResults.filter(Boolean));
     }
 
-    const films = details.sort((a, b) => (b.rate ?? 0) - (a.rate ?? 0));
+    // Tylko filmy z ostatnich 2 lat (aktualne premiery kinowe, nie reedycje klasyków)
+    const currentYear = new Date().getFullYear();
+    const films = details
+      .filter(f => f.year != null && f.year >= currentYear - 1)
+      .sort((a, b) => (b.rate ?? 0) - (a.rate ?? 0));
     cinemaCache = films;
     cinemaCacheTime = Date.now();
     return res.json({ films });

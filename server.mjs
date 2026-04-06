@@ -505,8 +505,12 @@ app.get('/api/filmweb/cinema', async (req, res) => {
       }
     }
 
+    // Tylko filmy z ostatnich 2 lat (aktualne premiery kinowe, nie reedycje klasyków)
+    const currentYear = new Date().getFullYear();
+    const recentFilms = details.filter(f => f.year != null && f.year >= currentYear - 1);
+
     // Posortuj wg oceny Filmweb (malejąco)
-    const films = details.sort((a, b) => (b.rate ?? 0) - (a.rate ?? 0));
+    const films = recentFilms.sort((a, b) => (b.rate ?? 0) - (a.rate ?? 0));
 
     filmwebCache.set(CINEMA_CACHE_KEY, { data: films, fetchedAt: Date.now() });
     res.json({ films });
