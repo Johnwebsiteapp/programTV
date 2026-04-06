@@ -447,7 +447,12 @@ app.get('/api/filmweb/cinema', async (req, res) => {
     const showtimesJson = await showtimesRes.json();
     // filmDates zawiera WSZYSTKIE filmy aktualnie grające w kinach (niezależnie od daty premiery)
     // showtimesJson.films zawiera tylko filmy których premiera jest DZIŚ — może być puste (np. niedziela)
-    const filmIds = Object.keys(showtimesJson.filmDates ?? {}).map(Number);
+    // Sortujemy wg liczby seansów żeby najpopularniejsze były pierwsze, i bierzemy top 60
+    const seanceCounts = showtimesJson.filmSeanceCounts ?? {};
+    const filmIds = Object.keys(showtimesJson.filmDates ?? {})
+      .map(Number)
+      .sort((a, b) => (seanceCounts[b] ?? 0) - (seanceCounts[a] ?? 0))
+      .slice(0, 60);
 
     // Krok 2: Pobierz szczegóły każdego filmu (preview + rating) równolegle
     const CONCURRENCY = 6;
@@ -464,12 +469,14 @@ app.get('/api/filmweb/cinema', async (req, res) => {
           const preview = await prevRes.json();
           const rating  = ratingRes.ok ? await ratingRes.json() : {};
 
-          const title = typeof preview.title === 'object'
-            ? (preview.title?.title ?? '')
+          const rawTitle = typeof preview.title === 'object'
+            ? (preview.title?.title ?? preview.title?.pl ?? preview.title?.text ?? '')
             : (preview.title ?? '');
           const originalTitle = typeof preview.originalTitle === 'object'
-            ? (preview.originalTitle?.title ?? null)
+            ? (preview.originalTitle?.title ?? preview.originalTitle?.text ?? null)
             : (preview.originalTitle ?? null);
+          // Jeśli polski tytuł pusty — użyj oryginalnego
+          const title = rawTitle || originalTitle || String(id);
           const poster = typeof preview.poster === 'object'
             ? (preview.poster?.path ?? preview.poster?.url ?? null)
             : (preview.poster ?? null);
@@ -553,7 +560,7 @@ const distPath = join(__dirname, 'dist');
 import fs from 'fs';
 if (fs.existsSync(distPath)) {
   app.use(express.static(distPath));
-  app.get('*', (req, res) => {
+  app.get('/{*path}', (req, res) => {
     if (!req.path.startsWith('/api')) {
       res.sendFile(join(distPath, 'index.html'));
     }
