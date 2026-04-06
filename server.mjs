@@ -435,15 +435,19 @@ app.get('/api/filmweb/cinema', async (req, res) => {
 
   try {
     // Krok 1: Pobierz ID filmów aktualnie grających w kinach
-    const today = new Date().toISOString().split('T')[0];
+    // Używamy jutrzejszej daty aby mieć pewność że API zwróci pełny repertuar
+    // (w niektóre dni — np. niedzielę — filmDates dla "dziś" może być puste)
+    const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0];
     const showtimesRes = await fetch(
-      `https://www.filmweb.pl/api/v1/showtimes?date=${today}`,
+      `https://www.filmweb.pl/api/v1/showtimes?date=${tomorrow}`,
       { headers: FILMWEB_HEADERS, timeout: 10000 }
     );
     if (!showtimesRes.ok) return res.status(502).json({ films: [] });
 
     const showtimesJson = await showtimesRes.json();
-    const filmIds = showtimesJson.films ?? []; // wszystkie filmy w kinach
+    // filmDates zawiera WSZYSTKIE filmy aktualnie grające w kinach (niezależnie od daty premiery)
+    // showtimesJson.films zawiera tylko filmy których premiera jest DZIŚ — może być puste (np. niedziela)
+    const filmIds = Object.keys(showtimesJson.filmDates ?? {}).map(Number);
 
     // Krok 2: Pobierz szczegóły każdego filmu (preview + rating) równolegle
     const CONCURRENCY = 6;
