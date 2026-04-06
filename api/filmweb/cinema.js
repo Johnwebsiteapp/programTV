@@ -14,9 +14,9 @@ export default async function handler(req, res) {
   }
 
   try {
-    const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    const today = new Date().toISOString().split('T')[0];
     const showtimesRes = await fetch(
-      `https://www.filmweb.pl/api/v1/showtimes?date=${tomorrow}`,
+      `https://www.filmweb.pl/api/v1/showtimes?date=${today}`,
       { headers: FILMWEB_HEADERS, signal: AbortSignal.timeout(10000) }
     );
     if (!showtimesRes.ok) return res.status(502).json({ films: [] });
