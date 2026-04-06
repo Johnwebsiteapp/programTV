@@ -1,10 +1,9 @@
 // ============================================================
 // SMART FILTER — Inteligentne wyszukiwanie filmów/seriali
-// Filtruje tygodniowy program + weryfikuje oceny na Filmweb
 // ============================================================
 
 import { useState, useCallback, useMemo, useEffect } from 'react';
-import { X, Sparkles, Search, Star, Calendar, Globe, Tag, Tv, ExternalLink, ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react';
+import { X, Sparkles, Search, Star, Calendar, Globe, Tag, Tv, ExternalLink, ChevronLeft, ChevronRight, ChevronDown, Heart } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
 import { batchSearchFilmweb, FilmwebData } from '../../api/filmwebApi';
 import { Program, Channel } from '../../types';
@@ -17,7 +16,9 @@ interface SmartFilterCriteria {
   excludedGenres: string[];
   excludedCountries: string[];
   minYear: number;
-  minRating: number;   // 0 = bez oceny Filmweb
+  minRating: number;
+  // null = wszystkie dni tygodnia, string[] = wybrane dayLabel-e ("Dziś","Jutro","Poniedziałek"...)
+  selectedDays: string[] | null;
 }
 
 interface FilteredProgram {
@@ -29,7 +30,6 @@ interface FilteredProgram {
 
 // ── Stałe ─────────────────────────────────────────────────
 
-// Tolerancja oceny: gdy użytkownik wybierze np. 7.0 → pokazujemy ≥ 6.4
 const RATING_TOLERANCE = 0.6;
 
 const FILMWEB_GENRES = [
@@ -51,6 +51,7 @@ const COUNTRIES = [
 ];
 
 const DAY_NAMES = ['Niedziela', 'Poniedziałek', 'Wtorek', 'Środa', 'Czwartek', 'Piątek', 'Sobota'];
+const SHORT_DAY = ['Nd', 'Pn', 'Wt', 'Śr', 'Cz', 'Pt', 'Sb'];
 
 function formatTime(d: Date) {
   return d.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' });
@@ -103,7 +104,7 @@ interface Props {
 }
 
 export function SmartFilterModal({ onClose }: Props) {
-  const { programs, channels } = useAppStore();
+  const { programs, channels, addFavorite, isFavoriteProgram } = useAppStore();
 
   const [criteria, setCriteria] = useState<SmartFilterCriteria>(() => {
     const prefs = loadPrefs();
@@ -111,9 +112,9 @@ export function SmartFilterModal({ onClose }: Props) {
       types: ['film', 'serial'],
       excludedGenres: prefs.excludedGenres,
       excludedCountries: prefs.excludedCountries,
-      // ocena i rok zawsze resetowane do domyślnych
       minYear: 2010,
       minRating: 0,
+      selectedDays: null,
     };
   });
 
@@ -121,10 +122,10 @@ export function SmartFilterModal({ onClose }: Props) {
   const [progress, setProgress] = useState({ done: 0, total: 0 });
   const [results, setResults] = useState<FilteredProgram[]>([]);
   const [zeroResultsHint, setZeroResultsHint] = useState<string | null>(null);
-  // 0 = bieżący tydzień (od dziś), 1 = następny tydzień
   const [weekOffset, setWeekOffset] = useState(0);
+  // Aktywna zakładka dnia w widoku wyników (null = wszystkie)
+  const [activeDay, setActiveDay] = useState<string | null>(null);
 
-  // Zablokuj scroll tła gdy modal jest otwarty (działa na iOS i Android)
   useEffect(() => {
     const scrollY = window.scrollY;
     document.body.style.overflow = 'hidden';
@@ -140,41 +141,49 @@ export function SmartFilterModal({ onClose }: Props) {
     };
   }, []);
 
-  // Zakres tygodnia: od początku dnia (00:00) do +7 dni
-  const { searchStart, searchEnd, weekLabel } = useMemo(() => {
+  // Zakres tygodnia + dostępne dni
+  const { searchStart, searchEnd, weekLabel, availableDays } = useMemo(() => {
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
     const start = new Date(todayStart.getTime() + weekOffset * 7 * 24 * 60 * 60 * 1000);
     const end   = new Date(start.getTime() + 7 * 24 * 60 * 60 * 1000);
     const label = weekOffset === 0 ? 'Ten tydzień' : 'Następny tydzień';
-    return { searchStart: start, searchEnd: end, weekLabel: label };
+
+    // Wygeneruj etykiety dni dla tego tygodnia
+    const days: { label: string; date: Date; short: string }[] = [];
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(start.getTime() + i * 24 * 60 * 60 * 1000);
+      days.push({
+        label: getDayLabel(d),
+        short: weekOffset === 0 && i === 0 ? 'Dziś' : weekOffset === 0 && i === 1 ? 'Jutro' : SHORT_DAY[d.getDay()],
+        date: d,
+      });
+    }
+
+    return { searchStart: start, searchEnd: end, weekLabel: label, availableDays: days };
   }, [weekOffset]);
 
   const candidatePrograms = useMemo(() => {
     return programs.filter(p => {
-      // Sprawdzamy startTime w zakresie całego tygodnia (od 00:00 dziś do +7 dni)
       if (p.startTime < searchStart || p.startTime >= searchEnd) return false;
+      // Filtr dni tygodnia
+      if (criteria.selectedDays && criteria.selectedDays.length > 0) {
+        const label = getDayLabel(p.startTime);
+        if (!criteria.selectedDays.includes(label)) return false;
+      }
       if (criteria.types.includes('film') && p.genre === 'movie') return true;
       if (criteria.types.includes('serial') && p.genre === 'series') return true;
       return false;
     });
-  }, [programs, criteria.types, searchStart, searchEnd]);
+  }, [programs, criteria.types, criteria.selectedDays, searchStart, searchEnd]);
 
-  // Pomocnicza: sprawdź czy program przechodzi przez filtry (poza ratingiem)
-  const passesNonRatingFilters = useCallback((
-    p: Program,
-    fw: FilmwebData | null,
-  ): boolean => {
+  const passesNonRatingFilters = useCallback((p: Program, fw: FilmwebData | null): boolean => {
     if (fw?.year && fw.year < criteria.minYear) return false;
     if (criteria.excludedGenres.length > 0 && fw?.genres?.length) {
-      if (criteria.excludedGenres.some(eg =>
-        fw.genres.some(g => g.toLowerCase().includes(eg.toLowerCase()))
-      )) return false;
+      if (criteria.excludedGenres.some(eg => fw.genres.some(g => g.toLowerCase().includes(eg.toLowerCase())))) return false;
     }
     if (criteria.excludedCountries.length > 0 && fw?.countries?.length) {
-      if (criteria.excludedCountries.some(ec =>
-        fw.countries.some(c => c.toLowerCase().includes(ec.toLowerCase()))
-      )) return false;
+      if (criteria.excludedCountries.some(ec => fw.countries.some(c => c.toLowerCase().includes(ec.toLowerCase())))) return false;
     }
     if (!channels.find(c => c.id === p.channelId)) return false;
     return true;
@@ -184,9 +193,9 @@ export function SmartFilterModal({ onClose }: Props) {
   const runSearch = useCallback(async () => {
     setPhase('loading');
     setZeroResultsHint(null);
+    setActiveDay(null);
     setProgress({ done: 0, total: candidatePrograms.length });
 
-    // Unikalne tytuły (żeby nie odpytywać wielokrotnie tego samego)
     const uniqueTitles = [...new Set(candidatePrograms.map(p => p.title))];
     setProgress({ done: 0, total: uniqueTitles.length });
 
@@ -195,7 +204,6 @@ export function SmartFilterModal({ onClose }: Props) {
       (done, total) => setProgress({ done, total })
     );
 
-    // Filtruj wyniki
     const filtered: FilteredProgram[] = [];
 
     for (const program of candidatePrograms) {
@@ -203,10 +211,6 @@ export function SmartFilterModal({ onClose }: Props) {
       const ch = channels.find(c => c.id === program.channelId);
       if (!ch) continue;
 
-      // Filtr: minimalna ocena Filmweb z tolerancją ±RATING_TOLERANCE (tylko w dół)
-      // Np. wybranie 7.0 pokaże filmy z oceną ≥ 6.4
-      // WAŻNE: jeśli Filmweb nie znalazł tytułu (fw=null), NIE wykluczamy programu —
-      // pokazujemy go bez oceny, bo może to być polska produkcja nieznana Filmwebowi.
       if (criteria.minRating > 0 && fw?.rate != null) {
         const effectiveMin = criteria.minRating - RATING_TOLERANCE;
         if (fw.rate < effectiveMin) continue;
@@ -214,15 +218,9 @@ export function SmartFilterModal({ onClose }: Props) {
 
       if (!passesNonRatingFilters(program, fw)) continue;
 
-      filtered.push({
-        program,
-        channel: ch,
-        filmweb: fw,
-        dayLabel: getDayLabel(program.startTime),
-      });
+      filtered.push({ program, channel: ch, filmweb: fw, dayLabel: getDayLabel(program.startTime) });
     }
 
-    // Sortuj: wg oceny Filmweb (malejąco), potem wg czasu emisji
     filtered.sort((a, b) => {
       const ra = a.filmweb?.rate ?? 0;
       const rb = b.filmweb?.rate ?? 0;
@@ -230,7 +228,6 @@ export function SmartFilterModal({ onClose }: Props) {
       return a.program.startTime.getTime() - b.program.startTime.getTime();
     });
 
-    // Hint dla 0 wyników: jaką ocenę obniżyć żeby coś się pojawiło
     if (filtered.length === 0 && criteria.minRating > 0) {
       let hint: string | null = null;
       for (const step of [0.5, 1.0, 1.5, 2.0, 3.0]) {
@@ -238,7 +235,6 @@ export function SmartFilterModal({ onClose }: Props) {
         const effectiveMin = testRating - RATING_TOLERANCE;
         const count = candidatePrograms.filter(p => {
           const fw = filmwebResults[p.title] ?? null;
-          // Nowa logika: tylko wykluczamy gdy mamy ocenę I jest za niska
           if (testRating > 0 && fw?.rate != null && fw.rate < effectiveMin) return false;
           return passesNonRatingFilters(p, fw);
         }).length;
@@ -258,27 +254,27 @@ export function SmartFilterModal({ onClose }: Props) {
 
   const toggleExcludedGenre = (g: string) =>
     setCriteria(c => {
-      const next = c.excludedGenres.includes(g)
-        ? c.excludedGenres.filter(x => x !== g)
-        : [...c.excludedGenres, g];
+      const next = c.excludedGenres.includes(g) ? c.excludedGenres.filter(x => x !== g) : [...c.excludedGenres, g];
       savePrefs({ excludedGenres: next, excludedCountries: c.excludedCountries });
       return { ...c, excludedGenres: next };
     });
 
   const toggleExcludedCountry = (country: string) =>
     setCriteria(c => {
-      const next = c.excludedCountries.includes(country)
-        ? c.excludedCountries.filter(x => x !== country)
-        : [...c.excludedCountries, country];
+      const next = c.excludedCountries.includes(country) ? c.excludedCountries.filter(x => x !== country) : [...c.excludedCountries, country];
       savePrefs({ excludedGenres: c.excludedGenres, excludedCountries: next });
       return { ...c, excludedCountries: next };
     });
 
   const toggleType = (t: 'film' | 'serial') =>
-    setCriteria(c => ({
-      ...c,
-      types: c.types.includes(t) ? c.types.filter(x => x !== t) : [...c.types, t],
-    }));
+    setCriteria(c => ({ ...c, types: c.types.includes(t) ? c.types.filter(x => x !== t) : [...c.types, t] }));
+
+  const toggleDay = (label: string) =>
+    setCriteria(c => {
+      const cur = c.selectedDays ?? [];
+      const next = cur.includes(label) ? cur.filter(x => x !== label) : [...cur, label];
+      return { ...c, selectedDays: next.length === 0 ? null : next };
+    });
 
   // ── Render: panel filtrów ─────────────────────────────────
   const renderFilters = () => (
@@ -287,11 +283,7 @@ export function SmartFilterModal({ onClose }: Props) {
 
         {/* Przełącznik tygodnia */}
         <div className="mt-4 flex items-center justify-between bg-gray-50 dark:bg-slate-800 rounded-2xl px-3 py-2.5">
-          <button
-            onClick={() => setWeekOffset(0)}
-            disabled={weekOffset === 0}
-            className="p-1 text-gray-400 disabled:opacity-30 hover:text-primary-600 transition-colors"
-          >
+          <button onClick={() => setWeekOffset(0)} disabled={weekOffset === 0} className="p-1 text-gray-400 disabled:opacity-30 hover:text-primary-600 transition-colors">
             <ChevronLeft size={16} />
           </button>
           <div className="text-center">
@@ -301,26 +293,52 @@ export function SmartFilterModal({ onClose }: Props) {
               {new Date(searchEnd.getTime() - 1).toLocaleDateString('pl-PL', { day: 'numeric', month: 'short' })}
             </p>
           </div>
-          <button
-            onClick={() => setWeekOffset(1)}
-            disabled={weekOffset === 1}
-            className="p-1 text-gray-400 disabled:opacity-30 hover:text-primary-600 transition-colors"
-          >
+          <button onClick={() => setWeekOffset(1)} disabled={weekOffset === 1} className="p-1 text-gray-400 disabled:opacity-30 hover:text-primary-600 transition-colors">
             <ChevronRight size={16} />
           </button>
+        </div>
+
+        {/* Wybór dni tygodnia */}
+        <div className="mt-3">
+          <div className="flex gap-1.5">
+            {availableDays.map(({ label, short }) => {
+              const selected = criteria.selectedDays?.includes(label) ?? false;
+              return (
+                <button
+                  key={label}
+                  onClick={() => toggleDay(label)}
+                  className={clsx(
+                    'flex-1 py-1.5 rounded-xl text-[11px] font-bold transition-all border',
+                    selected
+                      ? 'bg-primary-600 text-white border-primary-600'
+                      : 'bg-gray-50 dark:bg-slate-800 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-slate-700 hover:border-primary-400'
+                  )}
+                >
+                  {short}
+                </button>
+              );
+            })}
+          </div>
+          {criteria.selectedDays && criteria.selectedDays.length > 0 && (
+            <div className="flex items-center justify-between mt-1.5">
+              <p className="text-[10px] text-primary-600 font-medium">
+                {criteria.selectedDays.join(', ')}
+              </p>
+              <button
+                onClick={() => setCriteria(c => ({ ...c, selectedDays: null }))}
+                className="text-[10px] text-gray-400 hover:text-red-500 transition-colors"
+              >
+                wyczyść
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Typ treści */}
         <FilterSection title="Szukaj w" icon={<Tv size={16} />}>
           <div className="flex gap-2">
             {(['film', 'serial'] as const).map(t => (
-              <Chip
-                key={t}
-                label={t === 'film' ? 'Filmy' : 'Seriale'}
-                active={criteria.types.includes(t)}
-                onClick={() => toggleType(t)}
-                activeClass="bg-primary-600 text-white"
-              />
+              <Chip key={t} label={t === 'film' ? 'Filmy' : 'Seriale'} active={criteria.types.includes(t)} onClick={() => toggleType(t)} activeClass="bg-primary-600 text-white" />
             ))}
           </div>
         </FilterSection>
@@ -328,23 +346,13 @@ export function SmartFilterModal({ onClose }: Props) {
         {/* Minimalna ocena Filmweb */}
         <FilterSection title="Minimalna ocena Filmweb" icon={<Star size={16} />}>
           <div className="flex items-center gap-3">
-            <input
-              type="range"
-              min={0}
-              max={10}
-              step={0.5}
-              value={criteria.minRating}
+            <input type="range" min={0} max={10} step={0.5} value={criteria.minRating}
               onChange={e => setCriteria(c => ({ ...c, minRating: Number(e.target.value) }))}
               className="flex-1 accent-primary-600"
             />
             <div className="flex items-center gap-1 w-16">
               {criteria.minRating > 0 ? (
-                <>
-                  <Star size={14} className="text-amber-400 fill-amber-400" />
-                  <span className="text-lg font-bold text-gray-900 dark:text-white">
-                    {criteria.minRating.toFixed(1)}
-                  </span>
-                </>
+                <><Star size={14} className="text-amber-400 fill-amber-400" /><span className="text-lg font-bold text-gray-900 dark:text-white">{criteria.minRating.toFixed(1)}</span></>
               ) : (
                 <span className="text-sm text-gray-400">brak</span>
               )}
@@ -361,36 +369,24 @@ export function SmartFilterModal({ onClose }: Props) {
         {/* Rok produkcji */}
         <FilterSection title="Rok produkcji (od)" icon={<Calendar size={16} />}>
           <div className="flex items-center gap-3">
-            <input
-              type="range"
-              min={1980}
-              max={2025}
-              step={1}
-              value={criteria.minYear}
+            <input type="range" min={1980} max={2025} step={1} value={criteria.minYear}
               onChange={e => setCriteria(c => ({ ...c, minYear: Number(e.target.value) }))}
               className="flex-1 accent-primary-600"
             />
-            <span className="text-lg font-bold text-gray-900 dark:text-white w-14 text-right">
-              {criteria.minYear}
-            </span>
+            <span className="text-lg font-bold text-gray-900 dark:text-white w-14 text-right">{criteria.minYear}</span>
           </div>
         </FilterSection>
 
         {/* Wyklucz gatunki */}
         <FilterSection
-          title="Wyklucz gatunki"
-          icon={<Tag size={16} />}
+          title="Wyklucz gatunki" icon={<Tag size={16} />}
           onReset={criteria.excludedGenres.length > 0 ? () => {
             setCriteria(c => { savePrefs({ excludedGenres: [], excludedCountries: c.excludedCountries }); return { ...c, excludedGenres: [] }; });
           } : undefined}
         >
           <div className="flex flex-wrap gap-2">
             {FILMWEB_GENRES.map(g => (
-              <Chip
-                key={g}
-                label={g}
-                active={criteria.excludedGenres.includes(g)}
-                onClick={() => toggleExcludedGenre(g)}
+              <Chip key={g} label={g} active={criteria.excludedGenres.includes(g)} onClick={() => toggleExcludedGenre(g)}
                 activeClass="bg-red-100 text-red-700 border-red-300 dark:bg-red-900/30 dark:text-red-400"
                 inactiveClass="bg-gray-50 dark:bg-slate-800"
               />
@@ -400,19 +396,14 @@ export function SmartFilterModal({ onClose }: Props) {
 
         {/* Wyklucz kraje produkcji */}
         <FilterSection
-          title="Wyklucz kraje produkcji"
-          icon={<Globe size={16} />}
+          title="Wyklucz kraje produkcji" icon={<Globe size={16} />}
           onReset={criteria.excludedCountries.length > 0 ? () => {
             setCriteria(c => { savePrefs({ excludedGenres: c.excludedGenres, excludedCountries: [] }); return { ...c, excludedCountries: [] }; });
           } : undefined}
         >
           <div className="flex flex-wrap gap-2">
             {COUNTRIES.map(c => (
-              <Chip
-                key={c}
-                label={c}
-                active={criteria.excludedCountries.includes(c)}
-                onClick={() => toggleExcludedCountry(c)}
+              <Chip key={c} label={c} active={criteria.excludedCountries.includes(c)} onClick={() => toggleExcludedCountry(c)}
                 activeClass="bg-red-100 text-red-700 border-red-300 dark:bg-red-900/30 dark:text-red-400"
                 inactiveClass="bg-gray-50 dark:bg-slate-800"
               />
@@ -421,39 +412,29 @@ export function SmartFilterModal({ onClose }: Props) {
         </FilterSection>
       </div>
 
-      {/* Podsumowanie aktywnych filtrów + przycisk szukaj */}
+      {/* Dół: podsumowanie + przycisk */}
       <div className="px-4 pt-3 border-t border-gray-100 dark:border-slate-800 flex-shrink-0"
            style={{ paddingBottom: 'max(16px, env(safe-area-inset-bottom))' }}>
-
-        {/* Aktywne filtry jako chipy */}
         {(criteria.minRating > 0 || criteria.minYear > 1980 || criteria.excludedGenres.length > 0 || criteria.excludedCountries.length > 0) && (
           <div className="flex flex-wrap gap-1.5 mb-2.5">
             {criteria.minRating > 0 && (
               <span className="flex items-center gap-0.5 text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-300 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-700">
-                <Star size={9} className="fill-amber-500 text-amber-500" />
-                ≥ {criteria.minRating.toFixed(1)}
+                <Star size={9} className="fill-amber-500 text-amber-500" /> ≥ {criteria.minRating.toFixed(1)}
               </span>
             )}
             {criteria.minYear > 1980 && (
-              <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 border border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-700">
-                od {criteria.minYear}
-              </span>
+              <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 border border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-700">od {criteria.minYear}</span>
             )}
             {criteria.excludedGenres.map(g => (
-              <span key={g} className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-700 border border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-700">
-                ✕ {g}
-              </span>
+              <span key={g} className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-700 border border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-700">✕ {g}</span>
             ))}
             {criteria.excludedCountries.map(c => (
-              <span key={c} className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-700 border border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-700">
-                ✕ {c}
-              </span>
+              <span key={c} className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-700 border border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-700">✕ {c}</span>
             ))}
           </div>
         )}
-
         <p className="text-xs text-gray-400 text-center mb-2.5">
-          {candidatePrograms.length} programów do sprawdzenia ({weekLabel.toLowerCase()})
+          {candidatePrograms.length} programów do sprawdzenia ({weekLabel.toLowerCase()}{criteria.selectedDays ? `, ${criteria.selectedDays.join('/')}` : ''})
         </p>
         <button
           onClick={runSearch}
@@ -474,78 +455,95 @@ export function SmartFilterModal({ onClose }: Props) {
         <Sparkles size={28} className="text-primary-600 animate-spin-slow" />
       </div>
       <div className="text-center">
-        <p className="font-bold text-gray-900 dark:text-white text-lg mb-1">
-          Sprawdzam Filmweb...
-        </p>
-        <p className="text-sm text-gray-500">
-          {progress.done} / {progress.total} tytułów
-        </p>
+        <p className="font-bold text-gray-900 dark:text-white text-lg mb-1">Sprawdzam Filmweb...</p>
+        <p className="text-sm text-gray-500">{progress.done} / {progress.total} tytułów</p>
       </div>
       <div className="w-full bg-gray-100 dark:bg-slate-800 rounded-full h-2">
-        <div
-          className="h-2 bg-primary-600 rounded-full transition-all duration-300"
-          style={{ width: progress.total ? `${(progress.done / progress.total) * 100}%` : '0%' }}
-        />
+        <div className="h-2 bg-primary-600 rounded-full transition-all duration-300"
+          style={{ width: progress.total ? `${(progress.done / progress.total) * 100}%` : '0%' }} />
       </div>
-      <p className="text-xs text-gray-400 text-center">
-        Pobieranie ocen i szczegółów z Filmweb.pl
-      </p>
+      <p className="text-xs text-gray-400 text-center">Pobieranie ocen i szczegółów z Filmweb.pl</p>
     </div>
   );
 
   // ── Render: wyniki ────────────────────────────────────────
   const renderResults = () => {
-    // Grupuj po dniu
+    // Unikalne dni w wynikach (zachowaj kolejność)
+    const dayOrder = ['Dziś', 'Jutro', ...DAY_NAMES];
+    const daysInResults = [...new Set(results.map(r => r.dayLabel))]
+      .sort((a, b) => dayOrder.indexOf(a) - dayOrder.indexOf(b));
+
+    // Filtruj wyniki wg aktywnej zakładki
+    const visibleResults = activeDay ? results.filter(r => r.dayLabel === activeDay) : results;
+
+    // Grupuj widoczne wyniki po dniu
     const byDay: Record<string, FilteredProgram[]> = {};
-    for (const item of results) {
-      const key = item.dayLabel;
-      if (!byDay[key]) byDay[key] = [];
-      byDay[key].push(item);
+    for (const item of visibleResults) {
+      if (!byDay[item.dayLabel]) byDay[item.dayLabel] = [];
+      byDay[item.dayLabel].push(item);
     }
 
     return (
       <div className="flex-1 flex flex-col min-h-0">
-        {/* Nagłówek wyników */}
-        <div className="flex-shrink-0 px-4 py-3 bg-primary-50 dark:bg-primary-900/20 border-b border-primary-100 dark:border-primary-800">
-          <div className="flex items-center justify-between">
+        {/* Nagłówek */}
+        <div className="flex-shrink-0 px-4 py-2.5 bg-primary-50 dark:bg-primary-900/20 border-b border-primary-100 dark:border-primary-800">
+          <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
-              <Sparkles size={16} className="text-primary-600" />
-              <span className="font-bold text-primary-700 dark:text-primary-400">
+              <Sparkles size={15} className="text-primary-600" />
+              <span className="font-bold text-primary-700 dark:text-primary-400 text-sm">
                 {results.length} wyników · {weekLabel}
               </span>
             </div>
-            <button
-              onClick={() => setPhase('filters')}
-              className="text-xs text-primary-600 font-semibold flex items-center gap-1"
-            >
+            <button onClick={() => setPhase('filters')} className="text-xs text-primary-600 font-semibold">
               Zmień filtry
             </button>
           </div>
-          {criteria.minRating > 0 && (
-            <p className="text-xs text-primary-600/70 mt-0.5">
-              Ocena ≥ {(criteria.minRating - RATING_TOLERANCE).toFixed(1)}
-              {criteria.minRating !== criteria.minRating - RATING_TOLERANCE && ` (tolerancja od ${criteria.minRating.toFixed(1)})`}
-              {' · '}od {criteria.minYear} r.
-              {criteria.excludedGenres.length > 0 && ` · bez: ${criteria.excludedGenres.join(', ')}`}
-            </p>
+
+          {/* Zakładki dni */}
+          {daysInResults.length > 1 && (
+            <div className="flex gap-1.5 overflow-x-auto pb-0.5 scrollbar-hide">
+              <button
+                onClick={() => setActiveDay(null)}
+                className={clsx(
+                  'flex-shrink-0 px-3 py-1 rounded-full text-[11px] font-bold transition-all border',
+                  activeDay === null
+                    ? 'bg-primary-600 text-white border-primary-600'
+                    : 'bg-white dark:bg-slate-800 text-gray-500 border-gray-200 dark:border-slate-700'
+                )}
+              >
+                Wszystkie ({results.length})
+              </button>
+              {daysInResults.map(day => {
+                const count = results.filter(r => r.dayLabel === day).length;
+                return (
+                  <button
+                    key={day}
+                    onClick={() => setActiveDay(day === activeDay ? null : day)}
+                    className={clsx(
+                      'flex-shrink-0 px-3 py-1 rounded-full text-[11px] font-bold transition-all border',
+                      activeDay === day
+                        ? 'bg-primary-600 text-white border-primary-600'
+                        : 'bg-white dark:bg-slate-800 text-gray-500 border-gray-200 dark:border-slate-700'
+                    )}
+                  >
+                    {day} ({count})
+                  </button>
+                );
+              })}
+            </div>
           )}
         </div>
 
-        {/* Lista wyników — scrollowalna */}
-        <div
-          className="flex-1 overflow-y-auto"
-          style={{ WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain' } as React.CSSProperties}
-        >
-          {results.length === 0 ? (
+        {/* Lista wyników */}
+        <div className="flex-1 overflow-y-auto" style={{ WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain' } as React.CSSProperties}>
+          {visibleResults.length === 0 ? (
             <div className="flex flex-col items-center justify-center min-h-[200px] px-8 text-center gap-3 py-8">
               <Search size={32} className="text-gray-300" />
               <p className="text-gray-500 font-medium">Brak wyników</p>
               <p className="text-xs text-gray-400">Spróbuj złagodzić kryteria filtrowania</p>
               {zeroResultsHint && (
                 <div className="mt-1 px-4 py-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-2xl">
-                  <p className="text-xs text-amber-700 dark:text-amber-400 font-semibold">
-                    💡 {zeroResultsHint}
-                  </p>
+                  <p className="text-xs text-amber-700 dark:text-amber-400 font-semibold">💡 {zeroResultsHint}</p>
                 </div>
               )}
             </div>
@@ -553,14 +551,22 @@ export function SmartFilterModal({ onClose }: Props) {
             <>
               {Object.entries(byDay).map(([day, items]) => (
                 <div key={day}>
-                  <div className="px-4 py-2 bg-gray-50 dark:bg-slate-900 sticky top-0 z-10">
-                    <span className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      {day} — {pluralFilms(items.length)}
-                    </span>
-                  </div>
-                  <div className="px-4 pb-2 flex flex-col gap-2">
+                  {/* Nagłówek dnia — tylko gdy pokazujemy wszystkie */}
+                  {!activeDay && (
+                    <div className="px-4 py-2 bg-gray-50 dark:bg-slate-900 sticky top-0 z-10">
+                      <span className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                        {day} — {pluralFilms(items.length)}
+                      </span>
+                    </div>
+                  )}
+                  <div className="px-4 pb-2 flex flex-col gap-2 pt-2">
                     {items.map(item => (
-                      <ResultCard key={`${item.program.id}-${item.program.startTime.getTime()}`} item={item} />
+                      <ResultCard
+                        key={`${item.program.id}-${item.program.startTime.getTime()}`}
+                        item={item}
+                        isFavorite={isFavoriteProgram(item.program.id)}
+                        onAddFavorite={() => addFavorite(item.program)}
+                      />
                     ))}
                   </div>
                 </div>
@@ -575,18 +581,11 @@ export function SmartFilterModal({ onClose }: Props) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center">
-      {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-        style={{ touchAction: 'none' }}
-        onClick={onClose}
-      />
-
-      {/* Modal */}
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" style={{ touchAction: 'none' }} onClick={onClose} />
       <div className="relative w-full max-w-lg bg-white dark:bg-slate-900 rounded-t-3xl shadow-2xl flex flex-col"
            style={{ maxHeight: 'min(92svh, 92vh)', overscrollBehavior: 'contain' }}>
 
-        {/* Uchwyt + nagłówek */}
+        {/* Nagłówek */}
         <div className="flex-shrink-0 px-4 pt-3 pb-3 border-b border-gray-100 dark:border-slate-800">
           <div className="w-10 h-1 bg-gray-300 dark:bg-slate-600 rounded-full mx-auto mb-3" />
           <div className="flex items-center justify-between">
@@ -595,24 +594,16 @@ export function SmartFilterModal({ onClose }: Props) {
                 <Sparkles size={16} className={clsx("text-white", phase === 'loading' && "animate-spin-slow")} />
               </div>
               <div>
-                <h2 className="text-base font-bold text-gray-900 dark:text-white leading-tight">
-                  Smart Filter
-                </h2>
-                <p className="text-[10px] text-gray-400">
-                  {phase === 'results' ? `${results.length} wyników` : 'Filtruj z Filmweb'}
-                </p>
+                <h2 className="text-base font-bold text-gray-900 dark:text-white leading-tight">Smart Filter</h2>
+                <p className="text-[10px] text-gray-400">{phase === 'results' ? `${results.length} wyników` : 'Filtruj z Filmweb'}</p>
               </div>
             </div>
-            <button
-              onClick={onClose}
-              className="w-8 h-8 rounded-full bg-gray-100 dark:bg-slate-800 flex items-center justify-center text-gray-500 hover:text-gray-700 transition-colors"
-            >
+            <button onClick={onClose} className="w-8 h-8 rounded-full bg-gray-100 dark:bg-slate-800 flex items-center justify-center text-gray-500 hover:text-gray-700 transition-colors">
               <X size={16} />
             </button>
           </div>
         </div>
 
-        {/* Treść — flex-1 bez overflow:hidden żeby scroll działał */}
         <div className="flex-1 flex flex-col min-h-0" style={{ touchAction: 'pan-y' }}>
           {phase === 'filters' && renderFilters()}
           {phase === 'loading' && renderLoading()}
@@ -634,10 +625,7 @@ function FilterSection({ title, icon, children, onReset }: { title: string; icon
           <h3 className="text-sm font-bold text-gray-700 dark:text-gray-300">{title}</h3>
         </div>
         {onReset && (
-          <button
-            onClick={onReset}
-            className="text-[11px] font-semibold text-red-500 hover:text-red-700 transition-colors px-2 py-0.5 rounded-full hover:bg-red-50 dark:hover:bg-red-900/20"
-          >
+          <button onClick={onReset} className="text-[11px] font-semibold text-red-500 hover:text-red-700 transition-colors px-2 py-0.5 rounded-full hover:bg-red-50 dark:hover:bg-red-900/20">
             Wyczyść
           </button>
         )}
@@ -647,14 +635,8 @@ function FilterSection({ title, icon, children, onReset }: { title: string; icon
   );
 }
 
-function Chip({
-  label, active, onClick, activeClass, inactiveClass,
-}: {
-  label: string;
-  active: boolean;
-  onClick: () => void;
-  activeClass?: string;
-  inactiveClass?: string;
+function Chip({ label, active, onClick, activeClass, inactiveClass }: {
+  label: string; active: boolean; onClick: () => void; activeClass?: string; inactiveClass?: string;
 }) {
   return (
     <button
@@ -663,8 +645,7 @@ function Chip({
         'px-3 py-1.5 rounded-full text-xs font-semibold border transition-all capitalize',
         active
           ? (activeClass ?? 'bg-primary-600 text-white border-primary-600')
-          : (inactiveClass ?? 'bg-gray-50 dark:bg-slate-800') +
-            ' text-gray-600 dark:text-gray-400 border-gray-200 dark:border-slate-700 hover:border-primary-400'
+          : (inactiveClass ?? 'bg-gray-50 dark:bg-slate-800') + ' text-gray-600 dark:text-gray-400 border-gray-200 dark:border-slate-700 hover:border-primary-400'
       )}
     >
       {label}
@@ -672,61 +653,37 @@ function Chip({
   );
 }
 
-function ResultCard({ item }: { item: FilteredProgram }) {
+function ResultCard({ item, isFavorite, onAddFavorite }: { item: FilteredProgram; isFavorite: boolean; onAddFavorite: () => void }) {
   const [expanded, setExpanded] = useState(false);
   const { program, channel, filmweb } = item;
 
   return (
-    <div
-      className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-slate-700 shadow-sm hover:shadow-md transition-all overflow-hidden"
-    >
-      {/* Główna karta — kliknij żeby rozwinąć */}
-      <div
-        className="flex gap-3 p-3 cursor-pointer"
-        onClick={() => setExpanded(e => !e)}
-      >
-        {/* Kanał emoji */}
+    <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-slate-700 shadow-sm hover:shadow-md transition-all overflow-hidden">
+      {/* Główna karta */}
+      <div className="flex gap-3 p-3 cursor-pointer" onClick={() => setExpanded(e => !e)}>
         <div className="w-11 h-14 rounded-xl bg-gray-50 dark:bg-slate-700 flex items-center justify-center text-2xl flex-shrink-0 border border-gray-100 dark:border-slate-600">
           {channel.logoEmoji ?? '📺'}
         </div>
 
-        {/* Info */}
         <div className="flex-1 min-w-0">
-          <p className="font-bold text-sm text-gray-900 dark:text-white leading-tight truncate">
-            {program.title}
-          </p>
-
+          <p className="font-bold text-sm text-gray-900 dark:text-white leading-tight truncate">{program.title}</p>
           {filmweb?.originalTitle && filmweb.originalTitle !== program.title && (
             <p className="text-[11px] text-gray-400 truncate italic">{filmweb.originalTitle}</p>
           )}
-
           <div className="flex items-center gap-2 mt-1 flex-wrap">
-            {/* Ocena */}
             {filmweb?.rate != null && (
               <span className="flex items-center gap-0.5 text-xs font-bold text-amber-600 dark:text-amber-400">
-                <Star size={11} className="fill-amber-400 text-amber-400" />
-                {filmweb.rate.toFixed(1)}
+                <Star size={11} className="fill-amber-400 text-amber-400" />{filmweb.rate.toFixed(1)}
               </span>
             )}
-
-            {/* Rok */}
-            {filmweb?.year && (
-              <span className="text-xs text-gray-400">{filmweb.year}</span>
-            )}
-
-            {/* Kraj */}
-            {filmweb?.countries?.[0] && (
-              <span className="text-xs text-gray-400">{filmweb.countries[0]}</span>
-            )}
-
-            {/* Gatunek */}
+            {filmweb?.year && <span className="text-xs text-gray-400">{filmweb.year}</span>}
+            {filmweb?.countries?.[0] && <span className="text-xs text-gray-400">{filmweb.countries[0]}</span>}
             {filmweb?.genres?.[0] && (
               <span className="text-[10px] px-1.5 py-0.5 bg-gray-100 dark:bg-slate-700 rounded-full text-gray-500 dark:text-gray-400 capitalize">
                 {filmweb.genres[0]}
               </span>
             )}
           </div>
-
           <div className="flex items-center gap-1.5 mt-1">
             <span className="text-xs text-gray-500 dark:text-gray-400">
               {channel.shortName} · {formatTime(program.startTime)}–{formatTime(program.endTime)}
@@ -734,15 +691,20 @@ function ResultCard({ item }: { item: FilteredProgram }) {
           </div>
         </div>
 
-        {/* Rozwiń / zwiń */}
-        <div className="flex-shrink-0 flex flex-col items-center gap-1 self-start mt-0.5">
-          <ChevronDown
-            size={16}
+        <div className="flex-shrink-0 flex flex-col items-center gap-1.5 self-start mt-0.5">
+          {/* Ulubione */}
+          <button
+            onClick={e => { e.stopPropagation(); if (!isFavorite) onAddFavorite(); }}
             className={clsx(
-              'text-gray-300 transition-transform',
-              expanded && 'rotate-180'
+              'p-1 rounded-lg transition-colors',
+              isFavorite
+                ? 'text-red-500'
+                : 'text-gray-300 hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20'
             )}
-          />
+          >
+            <Heart size={15} className={clsx(isFavorite && 'fill-red-500')} />
+          </button>
+          <ChevronDown size={15} className={clsx('text-gray-300 transition-transform', expanded && 'rotate-180')} />
         </div>
       </div>
 
@@ -750,45 +712,30 @@ function ResultCard({ item }: { item: FilteredProgram }) {
       {expanded && (
         <div className="px-3 pb-3 border-t border-gray-100 dark:border-slate-700">
           <div className="pt-3 flex flex-col gap-2">
-            {/* Wszystkie kraje */}
             {filmweb?.countries && filmweb.countries.length > 0 && (
               <div className="flex items-start gap-1.5">
                 <Globe size={12} className="text-gray-400 mt-0.5 flex-shrink-0" />
-                <span className="text-xs text-gray-500 dark:text-gray-400">
-                  {filmweb.countries.join(', ')}
-                </span>
+                <span className="text-xs text-gray-500 dark:text-gray-400">{filmweb.countries.join(', ')}</span>
               </div>
             )}
-
-            {/* Wszystkie gatunki */}
             {filmweb?.genres && filmweb.genres.length > 0 && (
               <div className="flex flex-wrap gap-1">
                 {filmweb.genres.map(g => (
-                  <span key={g} className="text-[10px] px-1.5 py-0.5 bg-gray-100 dark:bg-slate-700 rounded-full text-gray-500 dark:text-gray-400 capitalize">
-                    {g}
-                  </span>
+                  <span key={g} className="text-[10px] px-1.5 py-0.5 bg-gray-100 dark:bg-slate-700 rounded-full text-gray-500 dark:text-gray-400 capitalize">{g}</span>
                 ))}
               </div>
             )}
-
-            {/* Opis/synopsis */}
             {(filmweb?.synopsis || program.description) && (
               <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed line-clamp-4">
                 {filmweb?.synopsis || program.description}
               </p>
             )}
-
-            {/* Link do Filmweb */}
             {filmweb?.filmwebUrl && (
-              <a
-                href={filmweb.filmwebUrl}
-                target="_blank"
-                rel="noopener noreferrer"
+              <a href={filmweb.filmwebUrl} target="_blank" rel="noopener noreferrer"
                 onClick={e => e.stopPropagation()}
                 className="flex items-center gap-1.5 text-xs text-primary-600 font-semibold hover:underline w-fit mt-0.5"
               >
-                <ExternalLink size={12} />
-                Otwórz na Filmweb
+                <ExternalLink size={12} /> Otwórz na Filmweb
               </a>
             )}
           </div>
