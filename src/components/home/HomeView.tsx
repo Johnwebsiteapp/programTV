@@ -3,7 +3,7 @@
 // ============================================================
 
 import { useMemo, useState, useEffect } from 'react';
-import { Bell, ChevronRight, Sparkles, Film, Star, ExternalLink } from 'lucide-react';
+import { Bell, ChevronRight, Sparkles, Film, Star, X, Globe, Tag, Calendar } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
 import { SmartFilterModal } from '../smartfilter/SmartFilterModal';
 import { getCinemaMovies, FilmwebData } from '../../api/filmwebApi';
@@ -38,6 +38,7 @@ export function HomeView() {
   const [showSmartFilter, setShowSmartFilter] = useState(false);
   const [cinemaMovies, setCinemaMovies] = useState<FilmwebData[]>([]);
   const [cinemaLoading, setCinemaLoading] = useState(true);
+  const [selectedCinemaFilm, setSelectedCinemaFilm] = useState<FilmwebData | null>(null);
 
   useEffect(() => {
     getCinemaMovies().then(films => {
@@ -145,7 +146,7 @@ export function HomeView() {
         ) : (
           <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-hide">
             {cinemaMovies.slice(0, 15).map(film => (
-              <CinemaCard key={film.id} film={film} />
+              <CinemaCard key={film.id} film={film} onSelect={setSelectedCinemaFilm} />
             ))}
           </div>
         )}
@@ -239,6 +240,11 @@ export function HomeView() {
     {showSmartFilter && (
       <SmartFilterModal onClose={() => setShowSmartFilter(false)} />
     )}
+
+    {/* Modal szczegółów filmu kinowego */}
+    {selectedCinemaFilm && (
+      <CinemaDetailModal film={selectedCinemaFilm} onClose={() => setSelectedCinemaFilm(null)} />
+    )}
   </>
   );
 }
@@ -247,54 +253,190 @@ export function HomeView() {
 
 const FILMWEB_POSTER_BASE = 'https://fwcdn.pl/fpo';
 
-function CinemaCard({ film }: { film: FilmwebData }) {
-  const posterUrl = film.poster
-    ? `${FILMWEB_POSTER_BASE}${film.poster.replace('.$.','.3.')}`
-    : null;
+function posterUrl(poster: string | null) {
+  if (!poster) return null;
+  return `${FILMWEB_POSTER_BASE}${poster.replace('.$.','.3.')}`;
+}
+
+function CinemaCard({ film, onSelect }: { film: FilmwebData; onSelect: (f: FilmwebData) => void }) {
+  const url = posterUrl(film.poster);
 
   return (
-    <a
-      href={film.filmwebUrl}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="flex-shrink-0 w-28 group"
-      onClick={e => e.stopPropagation()}
+    <button
+      onClick={() => onSelect(film)}
+      className="flex-shrink-0 w-28 text-left group"
     >
       {/* Poster */}
       <div className="w-28 h-40 rounded-2xl overflow-hidden bg-gray-100 dark:bg-slate-700 relative mb-2 shadow-sm">
-        {posterUrl ? (
+        {url ? (
           <img
-            src={posterUrl}
+            src={url}
             alt={film.title}
             className="w-full h-full object-cover"
             loading="lazy"
             onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center text-3xl">
+          <div className="w-full h-full flex items-center justify-center">
             <Film size={32} className="text-gray-300 dark:text-slate-500" />
           </div>
         )}
-        {/* Ocena */}
         {film.rate != null && (
           <div className="absolute bottom-1.5 left-1.5 flex items-center gap-0.5 bg-black/70 rounded-lg px-1.5 py-0.5">
             <Star size={9} className="fill-amber-400 text-amber-400" />
             <span className="text-white text-[10px] font-bold">{film.rate.toFixed(1)}</span>
           </div>
         )}
-        {/* ExternalLink badge */}
-        <div className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-          <ExternalLink size={10} className="text-white" />
-        </div>
       </div>
-
-      {/* Title */}
       <p className="text-xs font-semibold text-gray-800 dark:text-gray-200 line-clamp-2 leading-tight mb-0.5">
         {film.title}
       </p>
       {film.year && (
         <p className="text-[10px] text-gray-400">{film.year}</p>
       )}
-    </a>
+    </button>
+  );
+}
+
+// ── Modal szczegółów filmu kinowego ───────────────────────
+
+function CinemaDetailModal({ film, onClose }: { film: FilmwebData; onClose: () => void }) {
+  const url = posterUrl(film.poster);
+
+  // Blokada scrolla tła
+  useEffect(() => {
+    const scrollY = window.scrollY;
+    document.body.style.overflow = 'hidden';
+    document.body.style.position = 'fixed';
+    document.body.style.top = `-${scrollY}px`;
+    document.body.style.width = '100%';
+    return () => {
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.top = '';
+      document.body.style.width = '';
+      window.scrollTo(0, scrollY);
+    };
+  }, []);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center">
+      {/* Backdrop */}
+      <div
+        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        style={{ touchAction: 'none' }}
+        onClick={onClose}
+      />
+
+      {/* Sheet */}
+      <div
+        className="relative w-full max-w-lg bg-white dark:bg-slate-900 rounded-t-3xl shadow-2xl flex flex-col"
+        style={{ maxHeight: 'min(92svh, 92vh)', overscrollBehavior: 'contain' }}
+      >
+        {/* Uchwyt */}
+        <div className="flex-shrink-0 pt-3 pb-0 flex justify-center">
+          <div className="w-10 h-1 bg-gray-300 dark:bg-slate-600 rounded-full" />
+        </div>
+
+        {/* Przycisk zamknij */}
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 w-8 h-8 rounded-full bg-gray-100 dark:bg-slate-800 flex items-center justify-center text-gray-500"
+        >
+          <X size={16} />
+        </button>
+
+        {/* Treść scrollowalna */}
+        <div className="flex-1 overflow-y-auto min-h-0" style={{ WebkitOverflowScrolling: 'touch' } as React.CSSProperties}>
+          {/* Hero: poster + tytuł */}
+          <div className="flex gap-4 px-5 pt-4 pb-4">
+            {url ? (
+              <img
+                src={url}
+                alt={film.title}
+                className="w-24 h-36 object-cover rounded-2xl flex-shrink-0 shadow-md"
+              />
+            ) : (
+              <div className="w-24 h-36 rounded-2xl bg-gray-100 dark:bg-slate-700 flex items-center justify-center flex-shrink-0">
+                <Film size={28} className="text-gray-400" />
+              </div>
+            )}
+            <div className="flex-1 min-w-0 pt-1">
+              <h2 className="text-lg font-bold text-gray-900 dark:text-white leading-tight">
+                {film.title}
+              </h2>
+              {film.originalTitle && film.originalTitle !== film.title && (
+                <p className="text-sm text-gray-400 italic mt-0.5">{film.originalTitle}</p>
+              )}
+
+              {/* Ocena */}
+              {film.rate != null && (
+                <div className="flex items-center gap-1 mt-2">
+                  <Star size={14} className="fill-amber-400 text-amber-400" />
+                  <span className="text-lg font-bold text-gray-900 dark:text-white">{film.rate.toFixed(1)}</span>
+                  <span className="text-xs text-gray-400">/ 10</span>
+                  {film.rateCount > 0 && (
+                    <span className="text-xs text-gray-400 ml-1">({film.rateCount.toLocaleString('pl-PL')} ocen)</span>
+                  )}
+                </div>
+              )}
+
+              {/* Meta */}
+              <div className="flex flex-wrap gap-2 mt-2.5">
+                {film.year && (
+                  <span className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
+                    <Calendar size={11} />
+                    {film.year}
+                  </span>
+                )}
+                {film.countries.length > 0 && (
+                  <span className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
+                    <Globe size={11} />
+                    {film.countries.slice(0, 2).join(', ')}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Gatunki */}
+          {film.genres.length > 0 && (
+            <div className="px-5 pb-3">
+              <div className="flex items-center gap-1.5 mb-2">
+                <Tag size={13} className="text-primary-600" />
+                <span className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Gatunek</span>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {film.genres.map(g => (
+                  <span key={g} className="text-xs px-2.5 py-1 rounded-full bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-400 font-medium capitalize">
+                    {g}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Opis */}
+          {film.synopsis && (
+            <div className="px-5 pb-4">
+              <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5">Opis</p>
+              <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">{film.synopsis}</p>
+            </div>
+          )}
+
+          {/* Link do Filmweb */}
+          <div className="px-5 pb-6">
+            <a
+              href={film.filmwebUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-center gap-2 w-full py-3 rounded-2xl border-2 border-primary-600 text-primary-600 font-bold text-sm transition-colors hover:bg-primary-50 dark:hover:bg-primary-900/20"
+            >
+              Zobacz na Filmweb
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }

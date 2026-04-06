@@ -4,7 +4,7 @@
 // ============================================================
 
 import { useState, useCallback, useMemo, useEffect } from 'react';
-import { X, Sparkles, Search, Star, Calendar, Globe, Tag, Loader2, Tv, ChevronRight, ExternalLink } from 'lucide-react';
+import { X, Sparkles, Search, Star, Calendar, Globe, Tag, Tv, ExternalLink, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
 import { batchSearchFilmweb, FilmwebData } from '../../api/filmwebApi';
 import { Program, Channel } from '../../types';
@@ -81,6 +81,8 @@ export function SmartFilterModal({ onClose }: Props) {
   const [phase, setPhase] = useState<'filters' | 'loading' | 'results'>('filters');
   const [progress, setProgress] = useState({ done: 0, total: 0 });
   const [results, setResults] = useState<FilteredProgram[]>([]);
+  // 0 = bieżący tydzień (od dziś), 1 = następny tydzień
+  const [weekOffset, setWeekOffset] = useState(0);
 
   // Zablokuj scroll tła gdy modal jest otwarty (działa na iOS i Android)
   useEffect(() => {
@@ -98,17 +100,24 @@ export function SmartFilterModal({ onClose }: Props) {
     };
   }, []);
 
-  // Programy filmowe/serialowe z całego tygodnia
+  // Programy filmowe/serialowe — bieżący lub następny tydzień
+  const { searchStart, searchEnd, weekLabel } = useMemo(() => {
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const start = new Date(todayStart.getTime() + weekOffset * 7 * 24 * 60 * 60 * 1000);
+    const end   = new Date(start.getTime() + 7 * 24 * 60 * 60 * 1000);
+    const label = weekOffset === 0 ? 'Ten tydzień' : 'Następny tydzień';
+    return { searchStart: start, searchEnd: end, weekLabel: label };
+  }, [weekOffset]);
+
   const candidatePrograms = useMemo(() => {
-    const now = new Date();
-    const weekEnd = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
     return programs.filter(p => {
-      if (p.startTime < now || p.startTime > weekEnd) return false;
-      if (criteria.types.includes('film') && (p.genre === 'movie')) return true;
-      if (criteria.types.includes('serial') && (p.genre === 'series')) return true;
+      if (p.startTime < searchStart || p.startTime >= searchEnd) return false;
+      if (criteria.types.includes('film') && p.genre === 'movie') return true;
+      if (criteria.types.includes('serial') && p.genre === 'series') return true;
       return false;
     });
-  }, [programs, criteria.types]);
+  }, [programs, criteria.types, searchStart, searchEnd]);
 
   // ── Uruchom wyszukiwanie ──────────────────────────────────
   const runSearch = useCallback(async () => {
@@ -205,6 +214,31 @@ export function SmartFilterModal({ onClose }: Props) {
   const renderFilters = () => (
     <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', flex: 1, minHeight: 0 }}>
       <div style={{ flex: 1, overflowY: 'auto', WebkitOverflowScrolling: 'touch', minHeight: 0, padding: '0 16px 16px' } as React.CSSProperties}>
+
+        {/* Przełącznik tygodnia */}
+        <div className="mt-4 flex items-center justify-between bg-gray-50 dark:bg-slate-800 rounded-2xl px-3 py-2.5">
+          <button
+            onClick={() => setWeekOffset(0)}
+            disabled={weekOffset === 0}
+            className="p-1 text-gray-400 disabled:opacity-30 hover:text-primary-600 transition-colors"
+          >
+            <ChevronLeft size={16} />
+          </button>
+          <div className="text-center">
+            <p className="text-sm font-bold text-gray-900 dark:text-white">{weekLabel}</p>
+            <p className="text-[10px] text-gray-400">
+              {searchStart.toLocaleDateString('pl-PL', { day: 'numeric', month: 'short' })} –{' '}
+              {new Date(searchEnd.getTime() - 1).toLocaleDateString('pl-PL', { day: 'numeric', month: 'short' })}
+            </p>
+          </div>
+          <button
+            onClick={() => setWeekOffset(1)}
+            disabled={weekOffset === 1}
+            className="p-1 text-gray-400 disabled:opacity-30 hover:text-primary-600 transition-colors"
+          >
+            <ChevronRight size={16} />
+          </button>
+        </div>
 
         {/* Typ treści */}
         <FilterSection title="Szukaj w" icon={<Tv size={16} />}>

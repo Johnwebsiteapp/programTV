@@ -470,6 +470,8 @@ app.get('/api/filmweb/cinema', async (req, res) => {
             ? (preview.poster?.path ?? preview.poster?.url ?? null)
             : (preview.poster ?? null);
 
+          const synopsis = preview.plot?.synopsis ?? preview.description ?? null;
+
           return {
             id,
             title,
@@ -482,6 +484,7 @@ app.get('/api/filmweb/cinema', async (req, res) => {
             type:      preview.entityName ?? 'film',
             filmwebUrl: `https://www.filmweb.pl/film/${id}`,
             poster,
+            synopsis,
           };
         } catch { return null; }
       }));

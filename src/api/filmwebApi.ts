@@ -6,7 +6,7 @@
 export interface FilmwebData {
   id: number;
   title: string;
-  originalTitle?: string;
+  originalTitle?: string | null;
   year: number | null;
   rate: number | null;        // ocena 1-10
   rateCount: number;
@@ -15,6 +15,7 @@ export interface FilmwebData {
   type: 'FILM' | 'SERIAL' | string;
   filmwebUrl: string;
   poster: string | null;
+  synopsis?: string | null;   // streszczenie fabuły
 }
 
 export interface FilmwebBatchResult {
