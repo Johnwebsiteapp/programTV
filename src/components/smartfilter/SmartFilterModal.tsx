@@ -71,6 +71,31 @@ function pluralFilms(n: number): string {
   return `${n} filmów`;
 }
 
+// ── Persystencja preferencji (localStorage) ───────────────
+
+const PREFS_KEY = 'smart-filter-prefs';
+
+interface SavedPrefs {
+  excludedGenres: string[];
+  excludedCountries: string[];
+}
+
+function loadPrefs(): SavedPrefs {
+  try {
+    const raw = localStorage.getItem(PREFS_KEY);
+    if (!raw) return { excludedGenres: [], excludedCountries: [] };
+    return JSON.parse(raw) as SavedPrefs;
+  } catch {
+    return { excludedGenres: [], excludedCountries: [] };
+  }
+}
+
+function savePrefs(prefs: SavedPrefs) {
+  try {
+    localStorage.setItem(PREFS_KEY, JSON.stringify(prefs));
+  } catch {}
+}
+
 // ── Główny komponent ──────────────────────────────────────
 
 interface Props {
@@ -80,12 +105,16 @@ interface Props {
 export function SmartFilterModal({ onClose }: Props) {
   const { programs, channels } = useAppStore();
 
-  const [criteria, setCriteria] = useState<SmartFilterCriteria>({
-    types: ['film', 'serial'],
-    excludedGenres: [],
-    excludedCountries: [],
-    minYear: 2010,
-    minRating: 0,
+  const [criteria, setCriteria] = useState<SmartFilterCriteria>(() => {
+    const prefs = loadPrefs();
+    return {
+      types: ['film', 'serial'],
+      excludedGenres: prefs.excludedGenres,
+      excludedCountries: prefs.excludedCountries,
+      // ocena i rok zawsze resetowane do domyślnych
+      minYear: 2010,
+      minRating: 0,
+    };
   });
 
   const [phase, setPhase] = useState<'filters' | 'loading' | 'results'>('filters');
@@ -228,20 +257,22 @@ export function SmartFilterModal({ onClose }: Props) {
   // ── Helpers ───────────────────────────────────────────────
 
   const toggleExcludedGenre = (g: string) =>
-    setCriteria(c => ({
-      ...c,
-      excludedGenres: c.excludedGenres.includes(g)
+    setCriteria(c => {
+      const next = c.excludedGenres.includes(g)
         ? c.excludedGenres.filter(x => x !== g)
-        : [...c.excludedGenres, g],
-    }));
+        : [...c.excludedGenres, g];
+      savePrefs({ excludedGenres: next, excludedCountries: c.excludedCountries });
+      return { ...c, excludedGenres: next };
+    });
 
   const toggleExcludedCountry = (country: string) =>
-    setCriteria(c => ({
-      ...c,
-      excludedCountries: c.excludedCountries.includes(country)
+    setCriteria(c => {
+      const next = c.excludedCountries.includes(country)
         ? c.excludedCountries.filter(x => x !== country)
-        : [...c.excludedCountries, country],
-    }));
+        : [...c.excludedCountries, country];
+      savePrefs({ excludedGenres: c.excludedGenres, excludedCountries: next });
+      return { ...c, excludedCountries: next };
+    });
 
   const toggleType = (t: 'film' | 'serial') =>
     setCriteria(c => ({
