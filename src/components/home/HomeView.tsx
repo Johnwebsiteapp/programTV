@@ -41,10 +41,14 @@ export function HomeView() {
   const [selectedCinemaFilm, setSelectedCinemaFilm] = useState<FilmwebData | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
     getCinemaMovies().then(films => {
-      setCinemaMovies(films);
-      setCinemaLoading(false);
+      if (!cancelled) {
+        setCinemaMovies(films);
+        setCinemaLoading(false);
+      }
     });
+    return () => { cancelled = true; };
   }, []);
 
   const now = useMemo(() => new Date(), []);
@@ -75,7 +79,7 @@ export function HomeView() {
           {new Date().toLocaleDateString('pl-PL', { weekday: 'long', day: 'numeric', month: 'long' })}
         </p>
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white mt-0.5">
-          {getGreeting()} 👋
+          {getGreeting()}, Jan 👋
         </h1>
 
         {/* Smart Filter button */}
