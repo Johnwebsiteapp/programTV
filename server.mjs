@@ -11,7 +11,7 @@ const require = createRequire(import.meta.url);
 const fetch = (...args) => import('node-fetch').then(({ default: f }) => f(...args));
 
 const app = express();
-const PORT = 3001;
+const PORT = process.env.PORT || 3001;
 
 // ─── CACHE ────────────────────────────────────────────────
 // Klucz: `${channelSlug}_${dateStr}` (data w czasie polskim), wartość: { data, fetchedAt }
@@ -443,7 +443,7 @@ app.get('/api/filmweb/cinema', async (req, res) => {
     if (!showtimesRes.ok) return res.status(502).json({ films: [] });
 
     const showtimesJson = await showtimesRes.json();
-    const filmIds = (showtimesJson.films ?? []).slice(0, 25); // top 25
+    const filmIds = showtimesJson.films ?? []; // wszystkie filmy w kinach
 
     // Krok 2: Pobierz szczegóły każdego filmu (preview + rating) równolegle
     const CONCURRENCY = 6;
@@ -540,6 +540,21 @@ app.post('/api/filmweb/batch', async (req, res) => {
 
   res.json({ results });
 });
+
+// ─── Serwuj zbudowany frontend (produkcja) ────────────────
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const distPath = join(__dirname, 'dist');
+import fs from 'fs';
+if (fs.existsSync(distPath)) {
+  app.use(express.static(distPath));
+  app.get('*', (req, res) => {
+    if (!req.path.startsWith('/api')) {
+      res.sendFile(join(distPath, 'index.html'));
+    }
+  });
+}
 
 // ─── START ────────────────────────────────────────────────
 app.listen(PORT, () => {

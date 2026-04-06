@@ -145,7 +145,7 @@ export function HomeView() {
           <p className="text-sm text-gray-400 py-4 text-center">Brak danych z Filmweb</p>
         ) : (
           <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-hide">
-            {cinemaMovies.slice(0, 15).map(film => (
+            {cinemaMovies.map(film => (
               <CinemaCard key={film.id} film={film} onSelect={setSelectedCinemaFilm} />
             ))}
           </div>
