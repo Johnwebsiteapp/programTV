@@ -259,7 +259,9 @@ const FILMWEB_POSTER_BASE = 'https://fwcdn.pl/fpo';
 
 function posterUrl(poster: string | null) {
   if (!poster) return null;
-  return `${FILMWEB_POSTER_BASE}${poster.replace('.$.','.3.')}`;
+  const fixed = poster.replace('.$.','.3.');
+  if (fixed.startsWith('http')) return fixed;
+  return `${FILMWEB_POSTER_BASE}${fixed}`;
 }
 
 function CinemaCard({ film, onSelect }: { film: FilmwebData; onSelect: (f: FilmwebData) => void }) {
