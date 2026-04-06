@@ -11,7 +11,7 @@ const require = createRequire(import.meta.url);
 const fetch = (...args) => import('node-fetch').then(({ default: f }) => f(...args));
 
 const app = express();
-const PORT = process.env.PORT || 3001;
+const PORT = 3001;
 
 // ─── CACHE ────────────────────────────────────────────────
 // Klucz: `${channelSlug}_${dateStr}` (data w czasie polskim), wartość: { data, fetchedAt }
@@ -32,26 +32,19 @@ function getPolandDateStr(dayOffset = 0) {
 const CHANNEL_ONET_SLUGS = {
   tvp1:             'tvp-1-321',
   tvp2:             'tvp-2-323',
-  tvp3:             'tvp-3-172',
   tvn:              'tvn-357',
   polsat:           'polsat-38',
   ttv:              'ttv-33',
-  polsatplay:       'polsat-play-21',
   tvpinfo:          'tvp-info-462',
   tvn24:            'tvn-24-347',
-  polsatnews:       'polsat-news-100',
-  tvn24bis:         'tvn-24-biznes-i-swiat-6',
   tvn7:             'tvn-7-326',
   polsat2:          'polsat-2-327',
   tvpseriale:       'tvp-seriale-130',
   axn:              'axn-249',
-  axnblack:         'axn-black-271',
   fox:              'fox-127',
   comedycentral:    'comedy-central-63',
   hbo:              'hbo-23',
   hbo2:             'hbo2-24',
-  polsatcafe:       'polsat-caf-110',
-  polsatsport:      'polsat-sport-334',
   tvpsport:         'tvp-sport-40',
   eurosport1:       'eurosport-1-93',
   eurosport2:       'eurosport-2-76',
@@ -62,15 +55,6 @@ const CHANNEL_ONET_SLUGS = {
   tvphistoria:      'tvp-historia-74',
   tvpkultura:       'tvp-kultura-477',
   tvprozrywka:      'tvp-rozrywka-159',
-  disneychannel:    'disney-channel-478',
-  disneyjunior:     'disney-junior-469',
-  cartoonnetwork:   'cartoon-network-273',
-  nickelodeon:      'nickelodeon-42',
-  minimini:         'minimini-236',
-  mtv:              'mtv-polska-7',
-  polsatmusic:      'polsat-music-564',
-  bbcworld:         'bbc-world-news-254',
-  cnn:              'cnn-258',
 };
 
 // ─── MAPOWANIE KATEGORII ONET → GATUNEK ──────────────────
