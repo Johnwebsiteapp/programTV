@@ -4,7 +4,7 @@
 // ============================================================
 
 import { useState, useCallback, useMemo, useEffect } from 'react';
-import { X, Sparkles, Search, Star, Calendar, Globe, Tag, Tv, ExternalLink, ChevronLeft, ChevronRight } from 'lucide-react';
+import { X, Sparkles, Search, Star, Calendar, Globe, Tag, Tv, ExternalLink, ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
 import { batchSearchFilmweb, FilmwebData } from '../../api/filmwebApi';
 import { Program, Channel } from '../../types';
@@ -28,6 +28,9 @@ interface FilteredProgram {
 }
 
 // ── Stałe ─────────────────────────────────────────────────
+
+// Tolerancja oceny: gdy użytkownik wybierze np. 7.0 → pokazujemy ≥ 6.4
+const RATING_TOLERANCE = 0.6;
 
 const FILMWEB_GENRES = [
   'sci-fi', 'horror', 'animacja', 'dokumentalny', 'fantasy',
@@ -55,10 +58,17 @@ function formatTime(d: Date) {
 
 function getDayLabel(date: Date): string {
   const today = new Date();
-  const diff = Math.round((date.getTime() - today.setHours(0,0,0,0)) / 86400000);
+  today.setHours(0, 0, 0, 0);
+  const diff = Math.round((date.getTime() - today.getTime()) / 86400000);
   if (diff === 0) return 'Dziś';
   if (diff === 1) return 'Jutro';
   return DAY_NAMES[date.getDay()];
+}
+
+function pluralFilms(n: number): string {
+  if (n === 1) return '1 film';
+  if (n >= 2 && n <= 4) return `${n} filmy`;
+  return `${n} filmów`;
 }
 
 // ── Główny komponent ──────────────────────────────────────
@@ -81,6 +91,7 @@ export function SmartFilterModal({ onClose }: Props) {
   const [phase, setPhase] = useState<'filters' | 'loading' | 'results'>('filters');
   const [progress, setProgress] = useState({ done: 0, total: 0 });
   const [results, setResults] = useState<FilteredProgram[]>([]);
+  const [zeroResultsHint, setZeroResultsHint] = useState<string | null>(null);
   // 0 = bieżący tydzień (od dziś), 1 = następny tydzień
   const [weekOffset, setWeekOffset] = useState(0);
 
@@ -100,7 +111,7 @@ export function SmartFilterModal({ onClose }: Props) {
     };
   }, []);
 
-  // Programy filmowe/serialowe — bieżący lub następny tydzień
+  // Zakres tygodnia: od początku dnia (00:00) do +7 dni
   const { searchStart, searchEnd, weekLabel } = useMemo(() => {
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
@@ -112,6 +123,7 @@ export function SmartFilterModal({ onClose }: Props) {
 
   const candidatePrograms = useMemo(() => {
     return programs.filter(p => {
+      // Sprawdzamy startTime w zakresie całego tygodnia (od 00:00 dziś do +7 dni)
       if (p.startTime < searchStart || p.startTime >= searchEnd) return false;
       if (criteria.types.includes('film') && p.genre === 'movie') return true;
       if (criteria.types.includes('serial') && p.genre === 'series') return true;
@@ -119,9 +131,30 @@ export function SmartFilterModal({ onClose }: Props) {
     });
   }, [programs, criteria.types, searchStart, searchEnd]);
 
+  // Pomocnicza: sprawdź czy program przechodzi przez filtry (poza ratingiem)
+  const passesNonRatingFilters = useCallback((
+    p: Program,
+    fw: FilmwebData | null,
+  ): boolean => {
+    if (fw?.year && fw.year < criteria.minYear) return false;
+    if (criteria.excludedGenres.length > 0 && fw?.genres?.length) {
+      if (criteria.excludedGenres.some(eg =>
+        fw.genres.some(g => g.toLowerCase().includes(eg.toLowerCase()))
+      )) return false;
+    }
+    if (criteria.excludedCountries.length > 0 && fw?.countries?.length) {
+      if (criteria.excludedCountries.some(ec =>
+        fw.countries.some(c => c.toLowerCase().includes(ec.toLowerCase()))
+      )) return false;
+    }
+    if (!channels.find(c => c.id === p.channelId)) return false;
+    return true;
+  }, [criteria.excludedCountries, criteria.excludedGenres, criteria.minYear, channels]);
+
   // ── Uruchom wyszukiwanie ──────────────────────────────────
   const runSearch = useCallback(async () => {
     setPhase('loading');
+    setZeroResultsHint(null);
     setProgress({ done: 0, total: candidatePrograms.length });
 
     // Unikalne tytuły (żeby nie odpytywać wielokrotnie tego samego)
@@ -141,30 +174,14 @@ export function SmartFilterModal({ onClose }: Props) {
       const ch = channels.find(c => c.id === program.channelId);
       if (!ch) continue;
 
-      // Filtr: minimalna ocena Filmweb (pomijamy jeśli brak danych)
+      // Filtr: minimalna ocena Filmweb z tolerancją ±RATING_TOLERANCE (tylko w dół)
+      // Np. wybranie 7.0 pokaże filmy z oceną ≥ 6.4
       if (criteria.minRating > 0) {
-        if (!fw?.rate || fw.rate < criteria.minRating) continue;
+        const effectiveMin = criteria.minRating - RATING_TOLERANCE;
+        if (!fw?.rate || fw.rate < effectiveMin) continue;
       }
 
-      // Filtr: rok produkcji
-      if (fw?.year && fw.year < criteria.minYear) continue;
-      // Jeśli Filmweb nie zwrócił roku, nie wykluczamy (może być nowy)
-
-      // Filtr: wykluczone gatunki Filmweb
-      if (criteria.excludedGenres.length > 0 && fw?.genres?.length) {
-        const hasExcluded = criteria.excludedGenres.some(eg =>
-          fw.genres.some(g => g.toLowerCase().includes(eg.toLowerCase()))
-        );
-        if (hasExcluded) continue;
-      }
-
-      // Filtr: wykluczone kraje produkcji
-      if (criteria.excludedCountries.length > 0 && fw?.countries?.length) {
-        const hasExcluded = criteria.excludedCountries.some(ec =>
-          fw.countries.some(c => c.toLowerCase().includes(ec.toLowerCase()))
-        );
-        if (hasExcluded) continue;
-      }
+      if (!passesNonRatingFilters(program, fw)) continue;
 
       filtered.push({
         program,
@@ -182,9 +199,28 @@ export function SmartFilterModal({ onClose }: Props) {
       return a.program.startTime.getTime() - b.program.startTime.getTime();
     });
 
+    // Hint dla 0 wyników: jaką ocenę obniżyć żeby coś się pojawiło
+    if (filtered.length === 0 && criteria.minRating > 0) {
+      let hint: string | null = null;
+      for (const step of [0.5, 1.0, 1.5, 2.0, 3.0]) {
+        const testRating = Math.max(0, criteria.minRating - step);
+        const effectiveMin = testRating - RATING_TOLERANCE;
+        const count = candidatePrograms.filter(p => {
+          const fw = filmwebResults[p.title] ?? null;
+          if (testRating > 0 && (!fw?.rate || fw.rate < effectiveMin)) return false;
+          return passesNonRatingFilters(p, fw);
+        }).length;
+        if (count > 0) {
+          hint = `Obniż ocenę do ${testRating.toFixed(1)}★ → pojawi się ${pluralFilms(count)}`;
+          break;
+        }
+      }
+      setZeroResultsHint(hint);
+    }
+
     setResults(filtered);
     setPhase('results');
-  }, [candidatePrograms, channels, criteria]);
+  }, [candidatePrograms, channels, criteria, passesNonRatingFilters]);
 
   // ── Helpers ───────────────────────────────────────────────
 
@@ -282,7 +318,8 @@ export function SmartFilterModal({ onClose }: Props) {
           </div>
           {criteria.minRating > 0 && (
             <p className="text-xs text-gray-400 mt-1">
-              Filmy z oceną ≥ {criteria.minRating.toFixed(1)} na Filmweb
+              Filmy z oceną ≥ {(criteria.minRating - RATING_TOLERANCE).toFixed(1)}
+              <span className="text-gray-300"> (tolerancja ±{RATING_TOLERANCE})</span>
             </p>
           )}
         </FilterSection>
@@ -375,7 +412,7 @@ export function SmartFilterModal({ onClose }: Props) {
         )}
 
         <p className="text-xs text-gray-400 text-center mb-2.5">
-          {candidatePrograms.length} programów do sprawdzenia w tym tygodniu
+          {candidatePrograms.length} programów do sprawdzenia ({weekLabel.toLowerCase()})
         </p>
         <button
           onClick={runSearch}
@@ -426,14 +463,14 @@ export function SmartFilterModal({ onClose }: Props) {
     }
 
     return (
-      <div className="flex flex-col h-full">
+      <div className="flex-1 flex flex-col min-h-0">
         {/* Nagłówek wyników */}
-        <div className="px-4 py-3 bg-primary-50 dark:bg-primary-900/20 border-b border-primary-100 dark:border-primary-800">
+        <div className="flex-shrink-0 px-4 py-3 bg-primary-50 dark:bg-primary-900/20 border-b border-primary-100 dark:border-primary-800">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Sparkles size={16} className="text-primary-600" />
               <span className="font-bold text-primary-700 dark:text-primary-400">
-                {results.length} wyników
+                {results.length} wyników · {weekLabel}
               </span>
             </div>
             <button
@@ -445,36 +482,51 @@ export function SmartFilterModal({ onClose }: Props) {
           </div>
           {criteria.minRating > 0 && (
             <p className="text-xs text-primary-600/70 mt-0.5">
-              Ocena ≥ {criteria.minRating.toFixed(1)} · od {criteria.minYear} r.
+              Ocena ≥ {(criteria.minRating - RATING_TOLERANCE).toFixed(1)}
+              {criteria.minRating !== criteria.minRating - RATING_TOLERANCE && ` (tolerancja od ${criteria.minRating.toFixed(1)})`}
+              {' · '}od {criteria.minYear} r.
               {criteria.excludedGenres.length > 0 && ` · bez: ${criteria.excludedGenres.join(', ')}`}
             </p>
           )}
         </div>
 
-        <div className="flex-1 overflow-y-auto" style={{ WebkitOverflowScrolling: 'touch' } as React.CSSProperties}>
+        {/* Lista wyników — scrollowalna */}
+        <div
+          className="flex-1 overflow-y-auto"
+          style={{ WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain' } as React.CSSProperties}
+        >
           {results.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-48 px-8 text-center gap-3">
+            <div className="flex flex-col items-center justify-center min-h-[200px] px-8 text-center gap-3 py-8">
               <Search size={32} className="text-gray-300" />
               <p className="text-gray-500 font-medium">Brak wyników</p>
               <p className="text-xs text-gray-400">Spróbuj złagodzić kryteria filtrowania</p>
+              {zeroResultsHint && (
+                <div className="mt-1 px-4 py-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-2xl">
+                  <p className="text-xs text-amber-700 dark:text-amber-400 font-semibold">
+                    💡 {zeroResultsHint}
+                  </p>
+                </div>
+              )}
             </div>
           ) : (
-            Object.entries(byDay).map(([day, items]) => (
-              <div key={day}>
-                <div className="px-4 py-2 bg-gray-50 dark:bg-slate-900 sticky top-0 z-10">
-                  <span className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    {day} — {items.length} {items.length === 1 ? 'film' : 'filmy/filmów'}
-                  </span>
+            <>
+              {Object.entries(byDay).map(([day, items]) => (
+                <div key={day}>
+                  <div className="px-4 py-2 bg-gray-50 dark:bg-slate-900 sticky top-0 z-10">
+                    <span className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      {day} — {pluralFilms(items.length)}
+                    </span>
+                  </div>
+                  <div className="px-4 pb-2 flex flex-col gap-2">
+                    {items.map(item => (
+                      <ResultCard key={`${item.program.id}-${item.program.startTime.getTime()}`} item={item} />
+                    ))}
+                  </div>
                 </div>
-                <div className="px-4 pb-2 flex flex-col gap-2">
-                  {items.map(item => (
-                    <ResultCard key={item.program.id} item={item} />
-                  ))}
-                </div>
-              </div>
-            ))
+              ))}
+              <div style={{ height: 'max(16px, env(safe-area-inset-bottom))' }} />
+            </>
           )}
-          <div className="h-4" />
         </div>
       </div>
     );
@@ -491,7 +543,7 @@ export function SmartFilterModal({ onClose }: Props) {
 
       {/* Modal */}
       <div className="relative w-full max-w-lg bg-white dark:bg-slate-900 rounded-t-3xl shadow-2xl flex flex-col"
-           style={{ maxHeight: 'min(90svh, 90vh)', overscrollBehavior: 'contain' }}>
+           style={{ maxHeight: 'min(92svh, 92vh)', overscrollBehavior: 'contain' }}>
 
         {/* Uchwyt + nagłówek */}
         <div className="flex-shrink-0 px-4 pt-3 pb-3 border-b border-gray-100 dark:border-slate-800">
@@ -519,8 +571,8 @@ export function SmartFilterModal({ onClose }: Props) {
           </div>
         </div>
 
-        {/* Treść */}
-        <div className="flex-1 flex flex-col min-h-0" style={{ touchAction: 'pan-y', overflow: 'hidden' }}>
+        {/* Treść — flex-1 bez overflow:hidden żeby scroll działał */}
+        <div className="flex-1 flex flex-col min-h-0" style={{ touchAction: 'pan-y' }}>
           {phase === 'filters' && renderFilters()}
           {phase === 'loading' && renderLoading()}
           {phase === 'results' && renderResults()}
@@ -570,74 +622,126 @@ function Chip({
 }
 
 function ResultCard({ item }: { item: FilteredProgram }) {
-  const { setSelectedProgram } = useAppStore();
+  const [expanded, setExpanded] = useState(false);
   const { program, channel, filmweb } = item;
 
   return (
     <div
-      onClick={() => setSelectedProgram(program)}
-      className="flex gap-3 bg-white dark:bg-slate-800 rounded-2xl p-3 border border-gray-100 dark:border-slate-700 shadow-sm hover:shadow-md transition-all cursor-pointer"
+      className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-slate-700 shadow-sm hover:shadow-md transition-all overflow-hidden"
     >
-      {/* Kanał emoji */}
-      <div className="w-11 h-16 rounded-xl bg-gray-50 dark:bg-slate-700 flex items-center justify-center text-2xl flex-shrink-0 border border-gray-100 dark:border-slate-600">
-        {channel.logoEmoji ?? '📺'}
-      </div>
-
-      {/* Info */}
-      <div className="flex-1 min-w-0">
-        <p className="font-bold text-sm text-gray-900 dark:text-white leading-tight truncate">
-          {program.title}
-        </p>
-
-        {filmweb?.originalTitle && filmweb.originalTitle !== program.title && (
-          <p className="text-[11px] text-gray-400 truncate italic">{filmweb.originalTitle}</p>
-        )}
-
-        <div className="flex items-center gap-2 mt-1 flex-wrap">
-          {/* Ocena */}
-          {filmweb?.rate != null && (
-            <span className="flex items-center gap-0.5 text-xs font-bold text-amber-600 dark:text-amber-400">
-              <Star size={11} className="fill-amber-400 text-amber-400" />
-              {filmweb.rate.toFixed(1)}
-            </span>
-          )}
-
-          {/* Rok */}
-          {filmweb?.year && (
-            <span className="text-xs text-gray-400">{filmweb.year}</span>
-          )}
-
-          {/* Kraj */}
-          {filmweb?.countries?.[0] && (
-            <span className="text-xs text-gray-400">{filmweb.countries[0]}</span>
-          )}
-
-          {/* Gatunek */}
-          {filmweb?.genres?.[0] && (
-            <span className="text-[10px] px-1.5 py-0.5 bg-gray-100 dark:bg-slate-700 rounded-full text-gray-500 dark:text-gray-400 capitalize">
-              {filmweb.genres[0]}
-            </span>
-          )}
+      {/* Główna karta — kliknij żeby rozwinąć */}
+      <div
+        className="flex gap-3 p-3 cursor-pointer"
+        onClick={() => setExpanded(e => !e)}
+      >
+        {/* Kanał emoji */}
+        <div className="w-11 h-14 rounded-xl bg-gray-50 dark:bg-slate-700 flex items-center justify-center text-2xl flex-shrink-0 border border-gray-100 dark:border-slate-600">
+          {channel.logoEmoji ?? '📺'}
         </div>
 
-        <div className="flex items-center gap-1.5 mt-1.5">
-          <span className="text-xs text-gray-500 dark:text-gray-400">
-            {channel.shortName} · {formatTime(program.startTime)}–{formatTime(program.endTime)}
-          </span>
+        {/* Info */}
+        <div className="flex-1 min-w-0">
+          <p className="font-bold text-sm text-gray-900 dark:text-white leading-tight truncate">
+            {program.title}
+          </p>
+
+          {filmweb?.originalTitle && filmweb.originalTitle !== program.title && (
+            <p className="text-[11px] text-gray-400 truncate italic">{filmweb.originalTitle}</p>
+          )}
+
+          <div className="flex items-center gap-2 mt-1 flex-wrap">
+            {/* Ocena */}
+            {filmweb?.rate != null && (
+              <span className="flex items-center gap-0.5 text-xs font-bold text-amber-600 dark:text-amber-400">
+                <Star size={11} className="fill-amber-400 text-amber-400" />
+                {filmweb.rate.toFixed(1)}
+              </span>
+            )}
+
+            {/* Rok */}
+            {filmweb?.year && (
+              <span className="text-xs text-gray-400">{filmweb.year}</span>
+            )}
+
+            {/* Kraj */}
+            {filmweb?.countries?.[0] && (
+              <span className="text-xs text-gray-400">{filmweb.countries[0]}</span>
+            )}
+
+            {/* Gatunek */}
+            {filmweb?.genres?.[0] && (
+              <span className="text-[10px] px-1.5 py-0.5 bg-gray-100 dark:bg-slate-700 rounded-full text-gray-500 dark:text-gray-400 capitalize">
+                {filmweb.genres[0]}
+              </span>
+            )}
+          </div>
+
+          <div className="flex items-center gap-1.5 mt-1">
+            <span className="text-xs text-gray-500 dark:text-gray-400">
+              {channel.shortName} · {formatTime(program.startTime)}–{formatTime(program.endTime)}
+            </span>
+          </div>
+        </div>
+
+        {/* Rozwiń / zwiń */}
+        <div className="flex-shrink-0 flex flex-col items-center gap-1 self-start mt-0.5">
+          <ChevronDown
+            size={16}
+            className={clsx(
+              'text-gray-300 transition-transform',
+              expanded && 'rotate-180'
+            )}
+          />
         </div>
       </div>
 
-      {/* Link do Filmweb */}
-      {filmweb?.filmwebUrl && (
-        <a
-          href={filmweb.filmwebUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          onClick={e => e.stopPropagation()}
-          className="flex-shrink-0 self-start mt-0.5 p-1.5 rounded-lg text-gray-300 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors"
-        >
-          <ExternalLink size={14} />
-        </a>
+      {/* Rozwinięte szczegóły */}
+      {expanded && (
+        <div className="px-3 pb-3 border-t border-gray-100 dark:border-slate-700">
+          <div className="pt-3 flex flex-col gap-2">
+            {/* Wszystkie kraje */}
+            {filmweb?.countries && filmweb.countries.length > 0 && (
+              <div className="flex items-start gap-1.5">
+                <Globe size={12} className="text-gray-400 mt-0.5 flex-shrink-0" />
+                <span className="text-xs text-gray-500 dark:text-gray-400">
+                  {filmweb.countries.join(', ')}
+                </span>
+              </div>
+            )}
+
+            {/* Wszystkie gatunki */}
+            {filmweb?.genres && filmweb.genres.length > 0 && (
+              <div className="flex flex-wrap gap-1">
+                {filmweb.genres.map(g => (
+                  <span key={g} className="text-[10px] px-1.5 py-0.5 bg-gray-100 dark:bg-slate-700 rounded-full text-gray-500 dark:text-gray-400 capitalize">
+                    {g}
+                  </span>
+                ))}
+              </div>
+            )}
+
+            {/* Opis/synopsis */}
+            {(filmweb?.synopsis || program.description) && (
+              <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed line-clamp-4">
+                {filmweb?.synopsis || program.description}
+              </p>
+            )}
+
+            {/* Link do Filmweb */}
+            {filmweb?.filmwebUrl && (
+              <a
+                href={filmweb.filmwebUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={e => e.stopPropagation()}
+                className="flex items-center gap-1.5 text-xs text-primary-600 font-semibold hover:underline w-fit mt-0.5"
+              >
+                <ExternalLink size={12} />
+                Otwórz na Filmweb
+              </a>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );
