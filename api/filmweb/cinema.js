@@ -1,4 +1,4 @@
-import { searchFilmwebByTitle, FILMWEB_HEADERS } from '../_filmweb.js';
+import { FILMWEB_HEADERS } from '../_filmweb.js';
 
 // Module-level cache (persists on warm invocations)
 let cinemaCache = null;
