@@ -404,7 +404,7 @@ async function searchFilmweb(title) {
   }
 }
 
-// GET /api/filmweb/cinema — filmy z Cinema City
+// GET /api/filmweb/cinema — aktualnie grające w kinach w Polsce
 app.get('/api/filmweb/cinema', async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
 
@@ -415,95 +415,72 @@ app.get('/api/filmweb/cinema', async (req, res) => {
     return res.json({ films: cached.data });
   }
 
-  const CC_HEADERS = {
-    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-    'Accept': 'application/json',
-    'Accept-Language': 'pl-PL,pl;q=0.9',
-    'Referer': 'https://www.cinemacity.pl/',
-  };
-
   try {
     const today = new Date().toISOString().split('T')[0];
-    const ccRes = await fetch(
-      `https://www.cinemacity.pl/pl/data-api-service/v1/quickbook/10107/films/until/${today}/lang/pl_PL`,
-      { headers: CC_HEADERS, timeout: 10000 }
+    const showtimesRes = await fetch(
+      `https://www.filmweb.pl/api/v1/showtimes?date=${today}`,
+      { headers: FILMWEB_HEADERS, timeout: 10000 }
     );
-    if (!ccRes.ok) return res.status(502).json({ films: [] });
-    const ccJson = await ccRes.json();
-    const ccFilms = ccJson.body?.films ?? [];
+    if (!showtimesRes.ok) return res.status(502).json({ films: [] });
 
-    // Deduplicate by name
-    const seen = new Set();
-    const unique = ccFilms.filter(f => {
-      if (seen.has(f.name)) return false;
-      seen.add(f.name);
-      return true;
-    });
+    const showtimesJson = await showtimesRes.json();
+    const seanceCounts = showtimesJson.filmSeanceCounts ?? {};
+    const filmIds = Object.keys(showtimesJson.filmDates ?? {})
+      .map(Number)
+      .sort((a, b) => (seanceCounts[b] ?? 0) - (seanceCounts[a] ?? 0))
+      .slice(0, 60);
 
-    // Enrich with Filmweb ratings
     const CONCURRENCY = 6;
-    const films = [];
-    for (let i = 0; i < unique.length; i += CONCURRENCY) {
-      const batch = unique.slice(i, i + CONCURRENCY);
-      const results = await Promise.all(batch.map(async (ccFilm) => {
-        let fw = null;
+    const details = [];
+    for (let i = 0; i < filmIds.length; i += CONCURRENCY) {
+      const batch = filmIds.slice(i, i + CONCURRENCY);
+      const batchResults = await Promise.all(batch.map(async (id) => {
         try {
-          const query = encodeURIComponent(ccFilm.name);
-          const searchRes = await fetch(
-            `https://www.filmweb.pl/api/v1/search/film?query=${query}&pageSize=5`,
-            { headers: FILMWEB_HEADERS, timeout: 6000 }
-          );
-          if (searchRes.ok) {
-            const sj = await searchRes.json();
-            const items = sj.searchHits ?? sj.items ?? [];
-            const normalise = s => s?.toLowerCase().replace(/[^a-z0-9]/g, '') ?? '';
-            const needle = normalise(ccFilm.name);
-            const best = items.find(i => normalise(i.title) === needle) ?? items[0];
-            if (best?.id) {
-              const [prevRes, ratingRes] = await Promise.all([
-                fetch(`https://www.filmweb.pl/api/v1/film/${best.id}/preview`, { headers: FILMWEB_HEADERS, timeout: 6000 }),
-                fetch(`https://www.filmweb.pl/api/v1/film/${best.id}/rating`,  { headers: FILMWEB_HEADERS, timeout: 6000 }),
-              ]);
-              if (prevRes.ok) {
-                const preview = await prevRes.json();
-                const rating  = ratingRes.ok ? await ratingRes.json() : {};
-                const poster = typeof preview.poster === 'object'
-                  ? (preview.poster?.path ?? preview.poster?.url ?? null)
-                  : (preview.poster ?? null);
-                fw = {
-                  rate:      typeof rating.rate === 'number' ? Math.round(rating.rate * 10) / 10 : null,
-                  rateCount: rating.count ?? 0,
-                  poster:    poster || null,
-                  synopsis:  preview.plot?.synopsis ?? preview.description ?? null,
-                  filmwebUrl: `https://www.filmweb.pl/film/${best.id}`,
-                  genres:    (preview.genres ?? []).map(g => g?.name?.text?.toLowerCase?.() ?? '').filter(Boolean),
-                  year:      preview.year ?? null,
-                };
-              }
-            }
-          }
-        } catch {}
-        return {
-          id:          ccFilm.id,
-          title:       ccFilm.name,
-          originalTitle: null,
-          year:        fw?.year ?? null,
-          rate:        fw?.rate ?? null,
-          rateCount:   fw?.rateCount ?? 0,
-          genres:      fw?.genres ?? [],
-          countries:   [],
-          type:        'film',
-          filmwebUrl:  fw?.filmwebUrl ?? null,
-          poster:      ccFilm.posterLink ?? fw?.poster ?? null,
-          synopsis:    fw?.synopsis ?? null,
-        };
+          const [prevRes, ratingRes] = await Promise.all([
+            fetch(`https://www.filmweb.pl/api/v1/film/${id}/preview`, { headers: FILMWEB_HEADERS, timeout: 8000 }),
+            fetch(`https://www.filmweb.pl/api/v1/film/${id}/rating`,  { headers: FILMWEB_HEADERS, timeout: 8000 }),
+          ]);
+          if (!prevRes.ok) return null;
+          const preview = await prevRes.json();
+          const rating  = ratingRes.ok ? await ratingRes.json() : {};
+
+          const rawTitle = typeof preview.title === 'object'
+            ? (preview.title?.title ?? preview.title?.pl ?? preview.title?.text ?? '')
+            : (preview.title ?? '');
+          const originalTitle = typeof preview.originalTitle === 'object'
+            ? (preview.originalTitle?.title ?? preview.originalTitle?.text ?? null)
+            : (preview.originalTitle ?? null);
+          const title = rawTitle || originalTitle || String(id);
+          const poster = typeof preview.poster === 'object'
+            ? (preview.poster?.path ?? preview.poster?.url ?? null)
+            : (preview.poster ?? null);
+
+          return {
+            id,
+            title,
+            originalTitle: originalTitle !== title ? originalTitle : null,
+            year:      preview.year ?? null,
+            rate:      typeof rating.rate === 'number' ? Math.round(rating.rate * 10) / 10 : null,
+            rateCount: rating.count ?? 0,
+            genres:    (preview.genres ?? []).map(g => g?.name?.text?.toLowerCase?.() ?? '').filter(Boolean),
+            countries: (preview.countries ?? []).map(c => COUNTRY_CODES[c?.code] ?? c?.code ?? '').filter(Boolean),
+            type:      preview.entityName ?? 'film',
+            filmwebUrl: `https://www.filmweb.pl/film/${id}`,
+            poster,
+            synopsis:  preview.plot?.synopsis ?? preview.description ?? null,
+          };
+        } catch { return null; }
       }));
-      films.push(...results);
+      details.push(...batchResults.filter(Boolean));
     }
 
-    const sorted = films.sort((a, b) => (b.rate ?? 0) - (a.rate ?? 0));
-    filmwebCache.set(CINEMA_CACHE_KEY, { data: sorted, fetchedAt: Date.now() });
-    res.json({ films: sorted });
+    const currentYear = new Date().getFullYear();
+    const films = details
+      .filter(f => f.year != null && f.year >= currentYear - 1)
+      .sort((a, b) => (b.rate ?? 0) - (a.rate ?? 0));
+
+    filmwebCache.set(CINEMA_CACHE_KEY, { data: films, fetchedAt: Date.now() });
+    res.json({ films });
   } catch (err) {
     console.error('[cinema]', err.message);
     res.status(502).json({ films: [] });
