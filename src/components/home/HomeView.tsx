@@ -231,18 +231,16 @@ function CinemaDetailModal({ film, onClose }: { film: FilmwebData; onClose: () =
         className="relative w-full max-w-lg bg-white dark:bg-slate-900 rounded-t-3xl shadow-2xl flex flex-col"
         style={{ maxHeight: 'min(92svh, 92vh)', overscrollBehavior: 'contain' }}
       >
-        {/* Uchwyt */}
-        <div className="flex-shrink-0 pt-3 pb-0 flex justify-center">
+        {/* Uchwyt + zamknij */}
+        <div className="flex-shrink-0 pt-3 pb-0 flex items-center justify-center relative">
           <div className="w-10 h-1 bg-gray-300 dark:bg-slate-600 rounded-full" />
+          <button
+            onClick={onClose}
+            className="absolute right-4 w-8 h-8 rounded-full bg-gray-100 dark:bg-slate-800 flex items-center justify-center text-gray-500"
+          >
+            <X size={16} style={{ pointerEvents: 'none' }} />
+          </button>
         </div>
-
-        {/* Przycisk zamknij */}
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 w-8 h-8 rounded-full bg-gray-100 dark:bg-slate-800 flex items-center justify-center text-gray-500"
-        >
-          <X size={16} />
-        </button>
 
         {/* Treść scrollowalna */}
         <div className="flex-1 overflow-y-auto min-h-0" style={{ WebkitOverflowScrolling: 'touch' } as React.CSSProperties}>
