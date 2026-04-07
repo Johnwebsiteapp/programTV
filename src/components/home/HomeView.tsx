@@ -98,35 +98,6 @@ export function HomeView() {
         </button>
       </div>
 
-      {/* ── Top Channels ───────────────────────────────────── */}
-      <section className="px-4 mb-5">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-base font-bold text-gray-900 dark:text-white">Top kanały</h2>
-          <button
-            onClick={() => setActiveView('channels')}
-            className="flex items-center gap-0.5 text-xs text-primary-600 font-semibold"
-          >
-            Zobacz wszystkie <ChevronRight size={14} />
-          </button>
-        </div>
-        <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-hide">
-          {topChannels.map(ch => (
-            <button
-              key={ch.id}
-              onClick={() => setSelectedChannel(ch)}
-              className="flex-shrink-0 flex flex-col items-center gap-1.5"
-            >
-              <div className="w-14 h-14 rounded-2xl bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700 shadow-sm flex items-center justify-center text-2xl">
-                {ch.logoEmoji ?? '📺'}
-              </div>
-              <span className="text-[10px] text-gray-500 dark:text-gray-400 font-medium w-14 truncate text-center">
-                {ch.shortName}
-              </span>
-            </button>
-          ))}
-        </div>
-      </section>
-
       {/* ── Nowości w kinie ─────────────────────────────────── */}
       <section className="px-4 mb-5">
         <div className="flex items-center justify-between mb-3">
@@ -156,85 +127,6 @@ export function HomeView() {
         )}
       </section>
 
-      {/* ── Kategorie ──────────────────────────────────────── */}
-      <section className="px-4 mb-5">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-base font-bold text-gray-900 dark:text-white">Kategorie</h2>
-          <button
-            onClick={() => setActiveView('categories')}
-            className="flex items-center gap-0.5 text-xs text-primary-600 font-semibold"
-          >
-            Wszystkie <ChevronRight size={14} />
-          </button>
-        </div>
-        <div className="grid grid-cols-4 gap-2">
-          {Object.entries(CATEGORY_ICONS).slice(0, 4).map(([genre, cat]) => (
-            <button
-              key={genre}
-              onClick={() => setActiveView('epg')}
-              className="flex flex-col items-center gap-1.5 p-3 rounded-2xl bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700 shadow-sm hover:shadow-md transition-shadow"
-            >
-              <div className={clsx('w-10 h-10 rounded-xl flex items-center justify-center text-xl', cat.bg)}>
-                {cat.emoji}
-              </div>
-              <span className="text-[10px] font-semibold text-gray-700 dark:text-gray-300">{cat.label}</span>
-            </button>
-          ))}
-        </div>
-      </section>
-
-      {/* ── Up Next ────────────────────────────────────────── */}
-      {upNextPrograms.length > 0 && (
-        <section className="px-4 mb-6">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-base font-bold text-gray-900 dark:text-white">Następne</h2>
-            <button
-              onClick={() => setActiveView('epg')}
-              className="flex items-center gap-0.5 text-xs text-primary-600 font-semibold"
-            >
-              Program TV <ChevronRight size={14} />
-            </button>
-          </div>
-          <div className="flex flex-col gap-2">
-            {upNextPrograms.slice(0, 4).map(({ channel, program }) => (
-              <div
-                key={program.id}
-                onClick={() => setSelectedProgram(program)}
-                className="flex items-center gap-3 bg-white dark:bg-slate-800 rounded-2xl p-3 border border-gray-100 dark:border-slate-700 shadow-sm hover:shadow-md transition-all cursor-pointer"
-              >
-                {/* Emoji kanału */}
-                <div className="w-11 h-11 rounded-xl bg-gray-50 dark:bg-slate-700 flex items-center justify-center text-xl flex-shrink-0 border border-gray-100 dark:border-slate-600">
-                  {channel.logoEmoji ?? '📺'}
-                </div>
-
-                {/* Treść */}
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-sm text-gray-900 dark:text-white truncate">{program.title}</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                    {channel.name} · {formatTime(program.startTime)} – {formatTime(program.endTime)}
-                  </p>
-                </div>
-
-                {/* Przycisk powiadomienia */}
-                <button
-                  onClick={e => {
-                    e.stopPropagation();
-                    if (!hasNotification(program.id)) addNotification(program, 10);
-                  }}
-                  className={clsx(
-                    'p-2 rounded-xl flex-shrink-0 transition-colors',
-                    hasNotification(program.id)
-                      ? 'text-primary-600 bg-primary-50 dark:bg-primary-900/20'
-                      : 'text-gray-400 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20'
-                  )}
-                >
-                  <Bell size={16} />
-                </button>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
 
       {/* Padding na dole dla nawigacji */}
       <div className="h-4" />
