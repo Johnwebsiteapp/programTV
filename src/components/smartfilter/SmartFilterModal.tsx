@@ -731,8 +731,8 @@ function ResultCard({ item, isFavorite, onAddFavorite }: { item: FilteredProgram
                 {filmweb?.synopsis || program.description}
               </p>
             )}
-            {filmweb?.filmwebUrl && (
-              <a href={filmweb.filmwebUrl} target="_blank" rel="noopener noreferrer"
+            {filmweb?.id && (
+              <a href={`https://www.filmweb.pl/${filmweb.type?.toLowerCase().includes('serial') ? 'serial' : 'film'}/${filmweb.title.replace(/ /g, '+')}-${filmweb.year}-${filmweb.id}`} target="_blank" rel="noopener noreferrer"
                 onClick={e => e.stopPropagation()}
                 className="flex items-center gap-1.5 text-xs text-primary-600 font-semibold hover:underline w-fit mt-0.5"
               >

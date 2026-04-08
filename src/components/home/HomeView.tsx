@@ -198,6 +198,12 @@ function CinemaCard({ film, onSelect }: { film: FilmwebData; onSelect: (f: Filmw
 
 // ── Modal szczegółów filmu kinowego ───────────────────────
 
+function filmwebLink(film: FilmwebData): string {
+  const type = film.type?.toLowerCase().includes('serial') ? 'serial' : 'film';
+  const slug = film.title.replace(/ /g, '+');
+  return `https://www.filmweb.pl/${type}/${slug}-${film.year}-${film.id}`;
+}
+
 function CinemaDetailModal({ film, onClose }: { film: FilmwebData; onClose: () => void }) {
   const url = posterUrl(film.poster);
 
@@ -323,7 +329,7 @@ function CinemaDetailModal({ film, onClose }: { film: FilmwebData; onClose: () =
           {/* Link do Filmweb */}
           <div className="px-5 pb-6">
             <a
-              href={film.filmwebUrl}
+              href={filmwebLink(film)}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center justify-center gap-2 w-full py-3 rounded-2xl border-2 border-primary-600 text-primary-600 font-bold text-sm transition-colors hover:bg-primary-50 dark:hover:bg-primary-900/20"
