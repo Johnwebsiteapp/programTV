@@ -94,7 +94,7 @@ export function ProfileView() {
             <button
               onClick={toggleDarkMode}
               className={clsx(
-                'relative w-11 h-6 rounded-full transition-colors duration-200',
+                'relative w-11 h-6 rounded-full transition-colors duration-200 flex-shrink-0',
                 darkMode ? 'bg-primary-600' : 'bg-gray-200 dark:bg-slate-600'
               )}
             >

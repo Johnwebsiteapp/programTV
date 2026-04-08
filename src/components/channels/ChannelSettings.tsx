@@ -4,7 +4,7 @@
 // ============================================================
 
 import { useState } from 'react';
-import { Heart, Eye, EyeOff, RotateCcw, Star } from 'lucide-react';
+import { Heart, Eye, EyeOff, RotateCcw, Star, ArrowLeft } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
 import { CHANNEL_CATEGORY_LABELS, CHANNEL_CATEGORY_COLORS } from '../../data/channels';
 import { ChannelCategory } from '../../types';
@@ -12,7 +12,7 @@ import clsx from 'clsx';
 
 export function ChannelSettings() {
   const { channels, toggleFavoriteChannel, toggleChannelVisibility,
-          setAllChannelsVisible, resetChannels } = useAppStore();
+          setAllChannelsVisible, resetChannels, setActiveView } = useAppStore();
 
   const [activeCategory, setActiveCategory] = useState<ChannelCategory | 'all'>('all');
 
@@ -31,8 +31,14 @@ export function ChannelSettings() {
   return (
     <div className="max-w-2xl mx-auto p-4">
       {/* Nagłówek */}
-      <div className="flex items-center justify-between mb-4">
-        <div>
+      <div className="flex items-center gap-3 mb-4">
+        <button
+          onClick={() => setActiveView('profile')}
+          className="p-1.5 rounded-xl bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-slate-600 transition-colors flex-shrink-0"
+        >
+          <ArrowLeft size={18} />
+        </button>
+        <div className="flex-1 min-w-0">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Kanały</h2>
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
             {visibleCount} widocznych · {favoriteCount} ulubionych

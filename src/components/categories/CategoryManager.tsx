@@ -5,7 +5,7 @@
 // ============================================================
 
 import { useState } from 'react';
-import { Plus, Trash2, Tag, ChevronDown, ChevronUp, Filter } from 'lucide-react';
+import { Plus, Trash2, Tag, ChevronDown, ChevronUp, Filter, ArrowLeft } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
 import { Category, CategoryRule, RuleField, RuleOperator, ProgramGenre } from '../../types';
 import { GENRE_LABELS } from '../ui/Badge';
@@ -60,13 +60,19 @@ const CATEGORY_PRESETS = [
 ];
 
 export function CategoryManager() {
-  const { categories, addCategory, removeCategory, setFilters, filters } = useAppStore();
+  const { categories, addCategory, removeCategory, setFilters, filters, setActiveView } = useAppStore();
   const [showForm, setShowForm] = useState(false);
 
   return (
     <div className="max-w-2xl mx-auto p-4">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+      <div className="flex items-center gap-3 mb-4">
+        <button
+          onClick={() => setActiveView('profile')}
+          className="p-1.5 rounded-xl bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-slate-600 transition-colors flex-shrink-0"
+        >
+          <ArrowLeft size={18} />
+        </button>
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex-1">
           Moje kategorie
         </h2>
         <button

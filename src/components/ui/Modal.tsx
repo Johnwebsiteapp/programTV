@@ -56,10 +56,13 @@ export function Modal({ isOpen, onClose, title, children, size = 'md' }: ModalPr
       onClick={(e) => { if (e.target === overlayRef.current) onClose(); }}
     >
       {/* Tło */}
-      <div className={clsx(
-        'absolute inset-0 bg-black/60 backdrop-blur-sm modal-backdrop',
-        visible ? 'modal-visible' : 'modal-hidden'
-      )} />
+      <div
+        className={clsx(
+          'absolute inset-0 bg-black/60 backdrop-blur-sm modal-backdrop',
+          visible ? 'modal-visible' : 'modal-hidden'
+        )}
+        onClick={onClose}
+      />
 
       {/* Treść modalu */}
       <div className={clsx(
