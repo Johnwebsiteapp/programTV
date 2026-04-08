@@ -73,6 +73,19 @@ export function EPGGrid() {
   );
 }
 
+// ─── KOLORY NAGŁÓWKÓW KANAŁÓW wg kategorii ───────────────
+
+const CHANNEL_COLORS: Record<string, string> = {
+  general:       'bg-primary-600 hover:bg-primary-700',
+  news:          'bg-slate-700 hover:bg-slate-800',
+  sports:        'bg-green-600 hover:bg-green-700',
+  movies:        'bg-blue-600 hover:bg-blue-700',
+  kids:          'bg-yellow-500 hover:bg-yellow-600',
+  documentary:   'bg-amber-600 hover:bg-amber-700',
+  music:         'bg-purple-600 hover:bg-purple-700',
+  entertainment: 'bg-pink-600 hover:bg-pink-700',
+};
+
 // ─── SEKCJA KANAŁU ────────────────────────────────────────
 
 function ChannelSection({ channel, programs, now, isToday }: {
@@ -111,24 +124,32 @@ function ChannelSection({ channel, programs, now, isToday }: {
 
   const hasMore = extraPrograms.length > 0;
 
+  const headerColor = CHANNEL_COLORS[channel.category] ?? CHANNEL_COLORS.general;
+
   return (
-    <div className="border-b border-gray-200 dark:border-slate-800">
+    <div className="border-b-4 border-gray-100 dark:border-slate-800 mb-0.5">
       {/* ── Nagłówek kanału — kliknięcie = rozwiń/zwiń ── */}
       <button
-        className="w-full flex items-center gap-2.5 px-3 py-2.5 bg-gray-50 dark:bg-slate-800 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors text-left"
+        className={clsx(
+          'w-full flex items-center gap-3 px-3 py-2.5 text-left transition-opacity active:opacity-80',
+          headerColor
+        )}
         onClick={() => setExpanded(e => !e)}
       >
-        <span className="text-xl w-8 text-center flex-shrink-0">{channel.logoEmoji}</span>
-        <span className="font-bold text-sm text-gray-900 dark:text-white flex-1">{channel.name}</span>
-        {hasMore && (
-          <span className="text-xs text-gray-400 dark:text-gray-500 mr-1">
-            {expanded ? '' : `+${extraPrograms.length} więcej`}
+        {/* Emoji w kółku */}
+        <span className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center text-lg flex-shrink-0">
+          {channel.logoEmoji}
+        </span>
+        <span className="font-bold text-sm text-white flex-1 tracking-wide">{channel.name}</span>
+        {hasMore && !expanded && (
+          <span className="text-xs text-white/70 mr-1">
+            +{extraPrograms.length} więcej
           </span>
         )}
         <ChevronDown
           size={18}
           className={clsx(
-            'text-gray-400 flex-shrink-0 transition-transform duration-300',
+            'text-white/80 flex-shrink-0 transition-transform duration-300',
             expanded && 'rotate-180'
           )}
         />
