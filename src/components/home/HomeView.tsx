@@ -313,7 +313,7 @@ function CinemaDetailModal({ film, onClose }: { film: FilmwebData; onClose: () =
           )}
 
           {/* Opis */}
-          {film.synopsis && (
+          {film.synopsis && typeof film.synopsis === 'string' && (
             <div className="px-5 pb-4">
               <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5">Opis</p>
               <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">{film.synopsis}</p>
