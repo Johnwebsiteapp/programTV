@@ -580,10 +580,11 @@ export function SmartFilterModal({ onClose }: Props) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center">
+    <div className="fixed inset-0 z-50 flex items-end justify-center"
+         style={{ paddingTop: 'max(env(safe-area-inset-top), 48px)' }}>
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" style={{ touchAction: 'none' }} onClick={onClose} />
       <div className="relative w-full max-w-lg bg-white dark:bg-slate-900 rounded-t-3xl shadow-2xl flex flex-col"
-           style={{ maxHeight: 'min(92svh, 92vh)', overscrollBehavior: 'contain' }}>
+           style={{ maxHeight: '100%', overscrollBehavior: 'contain' }}>
 
         {/* Nagłówek */}
         <div className="flex-shrink-0 px-4 pt-3 pb-3 border-b border-gray-100 dark:border-slate-800">
