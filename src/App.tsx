@@ -15,12 +15,14 @@ import { ChannelSettings } from './components/channels/ChannelSettings';
 import { SearchView } from './components/search/SearchView';
 import { ProgramModal } from './components/programs/ProgramModal';
 import { ChannelView } from './components/channels/ChannelView';
+import { SmartFilterModal } from './components/smartfilter/SmartFilterModal';
+import { AIChatModal } from './components/chat/AIChatModal';
 import { HomeView } from './components/home/HomeView';
 import { ProfileView } from './components/profile/ProfileView';
 import { rescheduleAllNotifications } from './utils/notificationUtils';
 
 export default function App() {
-  const { activeView, darkMode, loadPrograms, notifications, markNotificationFired } = useAppStore();
+  const { activeView, darkMode, loadPrograms, notifications, markNotificationFired, showSmartFilter, setShowSmartFilter, showAIChat, setShowAIChat } = useAppStore();
 
   // Ustaw tryb ciemny przy starcie
   useEffect(() => {
@@ -104,6 +106,10 @@ export default function App() {
 
       {/* Panel kanału (pełny rozkład) */}
       <ChannelView />
+
+      {/* Smart Filter i AI Chat — renderowane po BottomNavigation żeby nie były zablokowane przez transform */}
+      {showSmartFilter && <SmartFilterModal onClose={() => setShowSmartFilter(false)} />}
+      {showAIChat && <AIChatModal onClose={() => setShowAIChat(false)} />}
     </div>
   );
 }

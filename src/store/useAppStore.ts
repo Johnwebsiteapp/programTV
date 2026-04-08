@@ -33,6 +33,10 @@ interface AppState {
   selectedProgram: Program | null; // Wybrany program (otwórz modal)
   selectedChannel: Channel | null; // Wybrany kanał (otwórz panel kanału)
 
+  // ── MODALNE ───────────────────────────────────────────
+  showSmartFilter: boolean;
+  showAIChat: boolean;
+
   // ── DANE UŻYTKOWNIKA (persystowane) ──────────────────
   favorites: Favorite[];           // Ulubione programy
   notifications: Notification[];   // Zaplanowane powiadomienia
@@ -52,6 +56,8 @@ interface AppState {
   setSelectedProgram: (program: Program | null) => void;
   setSelectedChannel: (channel: Channel | null) => void;
   triggerScrollToNow: () => void;
+  setShowSmartFilter: (v: boolean) => void;
+  setShowAIChat: (v: boolean) => void;
 
   // Filtry
   setFilters: (filters: Partial<FilterOptions>) => void;
@@ -106,6 +112,8 @@ export const useAppStore = create<AppState>()(
       filters: DEFAULT_FILTERS,
       selectedProgram: null,
       selectedChannel: null,
+      showSmartFilter: false,
+      showAIChat: false,
 
       favorites: [],
       notifications: [],
@@ -146,6 +154,8 @@ export const useAppStore = create<AppState>()(
 
       // ── Widok i nawigacja ─────────────────────────────
       setActiveView: (view) => set({ activeView: view }),
+      setShowSmartFilter: (v) => set({ showSmartFilter: v }),
+      setShowAIChat: (v) => set({ showAIChat: v }),
 
       setCurrentDate: (date) => set({ currentDate: date }),
 

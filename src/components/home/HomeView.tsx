@@ -5,8 +5,6 @@
 import { useMemo, useState, useEffect } from 'react';
 import { Bell, ChevronRight, Sparkles, Film, Star, X, Globe, Tag, Calendar, Bot } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
-import { SmartFilterModal } from '../smartfilter/SmartFilterModal';
-import { AIChatModal } from '../chat/AIChatModal';
 import { getCinemaMovies, FilmwebData } from '../../api/filmwebApi';
 import clsx from 'clsx';
 
@@ -35,9 +33,7 @@ function formatTime(date: Date): string {
 }
 
 export function HomeView() {
-  const { channels, programs, setActiveView, setSelectedProgram, setSelectedChannel, addNotification, hasNotification } = useAppStore();
-  const [showSmartFilter, setShowSmartFilter] = useState(false);
-  const [showAIChat, setShowAIChat] = useState(false);
+  const { channels, programs, setActiveView, setSelectedProgram, setSelectedChannel, addNotification, hasNotification, setShowSmartFilter, setShowAIChat } = useAppStore();
   const [cinemaMovies, setCinemaMovies] = useState<FilmwebData[]>([]);
   const [cinemaLoading, setCinemaLoading] = useState(true);
   const [selectedCinemaFilm, setSelectedCinemaFilm] = useState<FilmwebData | null>(null);
@@ -148,16 +144,6 @@ export function HomeView() {
       {/* Padding na dole dla nawigacji */}
       <div className="h-4" />
     </div>
-
-    {/* Smart Filter Modal */}
-    {showSmartFilter && (
-      <SmartFilterModal onClose={() => setShowSmartFilter(false)} />
-    )}
-
-    {/* AI Chat Modal */}
-    {showAIChat && (
-      <AIChatModal onClose={() => setShowAIChat(false)} />
-    )}
 
     {/* Modal szczegółów filmu kinowego */}
     {selectedCinemaFilm && (
