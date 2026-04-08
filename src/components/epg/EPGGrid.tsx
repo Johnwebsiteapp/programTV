@@ -56,7 +56,6 @@ export function EPGGrid() {
   return (
     <div className="flex flex-col h-full">
       <DayNavigation currentDate={currentDate} onDateChange={setCurrentDate} />
-      {isToday && <NowStrip programs={programs} channels={channels} now={now} />}
       <div className="flex-1 overflow-y-auto bg-white dark:bg-slate-950">
         {channels.map(channel => (
           <ChannelSection
