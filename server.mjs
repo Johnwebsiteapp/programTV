@@ -309,11 +309,9 @@ const COUNTRY_CODES = {
   IR: 'Iran', TH: 'Tajlandia', TW: 'Tajwan', HK: 'Hongkong',
 };
 
-/** Buduje poprawny URL Filmweb: /film/Tytuł+Filmu-rok-id */
-function buildFilmwebUrl(type, title, year, id) {
-  const slug = String(title ?? id).replace(/ /g, '+');
-  const yearPart = year ? `-${year}` : '';
-  return `https://www.filmweb.pl/${type}/${slug}${yearPart}-${id}`;
+/** Buduje URL Filmweb — wymagany format: /film/cokolwiek-{id} */
+function buildFilmwebUrl(type, _title, _year, id) {
+  return `https://www.filmweb.pl/${type}/film-${id}`;
 }
 
 const FILMWEB_HEADERS = {
@@ -398,7 +396,7 @@ async function searchFilmweb(title) {
       genres,
       countries,
       type:          filmType.toUpperCase(), // "FILM" | "SERIAL"
-      filmwebUrl:    buildFilmwebUrl(filmType, preview.title?.title ?? origTitle ?? title, preview.year, filmId),
+      filmwebUrl:    buildFilmwebUrl(filmType, null, null, filmId),
       poster:        posterPath ? `https://fwcdn.pl${posterPath}` : null,
     };
 
@@ -415,7 +413,7 @@ async function searchFilmweb(title) {
 app.get('/api/filmweb/cinema', async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
 
-  const CINEMA_CACHE_KEY = '__cinema__';
+  const CINEMA_CACHE_KEY = '__cinema_v2__';
   const CINEMA_CACHE_TTL = 6 * 60 * 60 * 1000;
   const cached = filmwebCache.get(CINEMA_CACHE_KEY);
   if (cached && Date.now() - cached.fetchedAt < CINEMA_CACHE_TTL) {
@@ -472,7 +470,7 @@ app.get('/api/filmweb/cinema', async (req, res) => {
             genres:    (preview.genres ?? []).map(g => g?.name?.text?.toLowerCase?.() ?? '').filter(Boolean),
             countries: (preview.countries ?? []).map(c => COUNTRY_CODES[c?.code] ?? c?.code ?? '').filter(Boolean),
             type:      preview.entityName ?? 'film',
-            filmwebUrl: buildFilmwebUrl('film', title, preview.year, id),
+            filmwebUrl: buildFilmwebUrl('film', null, null, id),
             poster,
             synopsis:  (() => { const s = preview.plot?.synopsis ?? preview.description ?? null; return (s && typeof s === 'object') ? (s.synopsis ?? null) : s; })(),
           };
