@@ -7,7 +7,8 @@ import { useState, useEffect } from 'react';
  */
 export function useAnimatedMount(isOpen: boolean, duration = 300) {
   const [mounted, setMounted] = useState(isOpen);
-  const [visible, setVisible] = useState(isOpen);
+  // visible zawsze startuje jako false — animacja wejścia gra nawet gdy isOpen=true od razu
+  const [visible, setVisible] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
