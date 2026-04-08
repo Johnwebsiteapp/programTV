@@ -82,54 +82,92 @@ function ChannelSection({ channel, programs, now, isToday }: {
   isToday: boolean;
 }) {
   const { setSelectedChannel, setSelectedProgram } = useAppStore();
-  const [collapsed, setCollapsed] = useState(false);
+  const [expanded, setExpanded] = useState(false);
 
-  // Pokaż tylko programy od teraz (lub wszystkie dla innych dni)
-  const visiblePrograms = useMemo(() => {
-    const sorted = [...programs].sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
+  const sorted = useMemo(() =>
+    [...programs].sort((a, b) => a.startTime.getTime() - b.startTime.getTime()),
+  [programs]);
+
+  // Programy od teraz (lub wszystkie dla innych dni)
+  const relevantPrograms = useMemo(() => {
     if (!isToday) return sorted;
-    // Dziś: pokaż aktualny + następne (od 1h przed)
     const cutoff = new Date(now.getTime() - 60 * 60 * 1000);
     return sorted.filter(p => p.endTime > cutoff);
-  }, [programs, now, isToday]);
+  }, [sorted, now, isToday]);
+
+  // Domyślnie: aktualny + 1 następny (max 2)
+  const previewPrograms = useMemo(() => {
+    const current = relevantPrograms.find(p => p.startTime <= now && p.endTime > now);
+    const next    = relevantPrograms.find(p => p.startTime > now);
+    const preview = [current, next].filter(Boolean) as Program[];
+    // Jeśli nic nie leci "teraz" (inny dzień), pokaż pierwsze 2
+    return preview.length > 0 ? preview : relevantPrograms.slice(0, 2);
+  }, [relevantPrograms, now]);
+
+  // Pozostałe programy (do rozwinięcia)
+  const extraPrograms = useMemo(() =>
+    relevantPrograms.filter(p => !previewPrograms.includes(p)),
+  [relevantPrograms, previewPrograms]);
+
+  const hasMore = extraPrograms.length > 0;
 
   return (
-    <div className="border-b border-gray-100 dark:border-slate-800">
-      {/* ── Nagłówek kanału ─────────────────────────── */}
-      <div className="flex items-center bg-white dark:bg-slate-900 sticky top-0 z-10 border-b border-gray-100 dark:border-slate-800">
-        {/* Kliknięcie w logo/nazwę → pełny program kanału */}
-        <button
-          className="flex items-center gap-2.5 flex-1 px-3 py-2.5 text-left hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors"
-          onClick={() => setSelectedChannel(channel)}
-        >
-          <span className="text-xl w-8 text-center flex-shrink-0">{channel.logoEmoji}</span>
-          <span className="font-bold text-sm text-gray-900 dark:text-white">{channel.name}</span>
-        </button>
+    <div className="border-b border-gray-200 dark:border-slate-800">
+      {/* ── Nagłówek kanału — kliknięcie = rozwiń/zwiń ── */}
+      <button
+        className="w-full flex items-center gap-2.5 px-3 py-2.5 bg-gray-50 dark:bg-slate-800 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors text-left"
+        onClick={() => setExpanded(e => !e)}
+      >
+        <span className="text-xl w-8 text-center flex-shrink-0">{channel.logoEmoji}</span>
+        <span className="font-bold text-sm text-gray-900 dark:text-white flex-1">{channel.name}</span>
+        {hasMore && (
+          <span className="text-xs text-gray-400 dark:text-gray-500 mr-1">
+            {expanded ? '' : `+${extraPrograms.length} więcej`}
+          </span>
+        )}
+        <ChevronDown
+          size={18}
+          className={clsx(
+            'text-gray-400 flex-shrink-0 transition-transform duration-300',
+            expanded && 'rotate-180'
+          )}
+        />
+      </button>
 
-        {/* Przycisk zwijania */}
-        <button
-          className="px-3 py-2.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-          onClick={() => setCollapsed(c => !c)}
-        >
-          {collapsed ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
-        </button>
+      {/* ── Podgląd: aktualny + następny ─────────────── */}
+      <div className="bg-white dark:bg-slate-900">
+        {previewPrograms.length === 0 ? (
+          <p className="text-xs text-gray-400 px-4 py-3">Brak danych programowych</p>
+        ) : (
+          previewPrograms.map(p => (
+            <ProgramRow key={p.id} program={p} now={now}
+              onSelect={() => setSelectedProgram(p)} />
+          ))
+        )}
       </div>
 
-      {/* ── Lista programów ──────────────────────────── */}
-      {!collapsed && (
-        <div className="bg-white dark:bg-slate-900">
-          {visiblePrograms.length === 0 ? (
-            <p className="text-xs text-gray-400 px-4 py-3">Brak danych programowych</p>
-          ) : (
-            visiblePrograms.map(program => (
-              <ProgramRow
-                key={program.id}
-                program={program}
-                now={now}
-                onSelect={() => setSelectedProgram(program)}
-              />
-            ))
-          )}
+      {/* ── Rozwijana reszta (animacja grid-template-rows) ── */}
+      {hasMore && (
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateRows: expanded ? '1fr' : '0fr',
+            transition: 'grid-template-rows 0.35s cubic-bezier(0.4, 0, 0.2, 1)',
+          }}
+        >
+          <div style={{ overflow: 'hidden' }} className="bg-white dark:bg-slate-900">
+            {extraPrograms.map(p => (
+              <ProgramRow key={p.id} program={p} now={now}
+                onSelect={() => setSelectedProgram(p)} />
+            ))}
+            {/* Przycisk "Cały program" na dole */}
+            <button
+              onClick={() => setSelectedChannel(channel)}
+              className="w-full py-2.5 text-xs font-semibold text-primary-600 dark:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors border-t border-gray-100 dark:border-slate-800"
+            >
+              Cały program {channel.name} →
+            </button>
+          </div>
         </div>
       )}
     </div>
