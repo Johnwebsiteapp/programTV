@@ -309,6 +309,13 @@ const COUNTRY_CODES = {
   IR: 'Iran', TH: 'Tajlandia', TW: 'Tajwan', HK: 'Hongkong',
 };
 
+/** Buduje poprawny URL Filmweb: /film/Tytuł+Filmu-rok-id */
+function buildFilmwebUrl(type, title, year, id) {
+  const slug = String(title ?? id).replace(/ /g, '+');
+  const yearPart = year ? `-${year}` : '';
+  return `https://www.filmweb.pl/${type}/${slug}${yearPart}-${id}`;
+}
+
 const FILMWEB_HEADERS = {
   'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
   'Accept': 'application/json',
@@ -391,7 +398,7 @@ async function searchFilmweb(title) {
       genres,
       countries,
       type:          filmType.toUpperCase(), // "FILM" | "SERIAL"
-      filmwebUrl:    `https://www.filmweb.pl/${filmType}/${filmId}`,
+      filmwebUrl:    buildFilmwebUrl(filmType, preview.title?.title ?? origTitle ?? title, preview.year, filmId),
       poster:        posterPath ? `https://fwcdn.pl${posterPath}` : null,
     };
 
@@ -465,7 +472,7 @@ app.get('/api/filmweb/cinema', async (req, res) => {
             genres:    (preview.genres ?? []).map(g => g?.name?.text?.toLowerCase?.() ?? '').filter(Boolean),
             countries: (preview.countries ?? []).map(c => COUNTRY_CODES[c?.code] ?? c?.code ?? '').filter(Boolean),
             type:      preview.entityName ?? 'film',
-            filmwebUrl: `https://www.filmweb.pl/film/${id}`,
+            filmwebUrl: buildFilmwebUrl('film', title, preview.year, id),
             poster,
             synopsis:  (() => { const s = preview.plot?.synopsis ?? preview.description ?? null; return (s && typeof s === 'object') ? (s.synopsis ?? null) : s; })(),
           };
