@@ -594,30 +594,29 @@ Odpowiadaj wyłącznie po polsku. Bądź krótki i bezpośredni.`;
 app.post('/api/ai-chat', async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
 
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey || apiKey === 'twój_klucz_tutaj') {
-    return res.status(503).json({ error: 'Brak klucza ANTHROPIC_API_KEY w pliku .env' });
+  const apiKey = process.env.GROQ_API_KEY;
+  if (!apiKey) {
+    return res.status(503).json({ error: 'Brak klucza GROQ_API_KEY w pliku .env' });
   }
 
   const { message, history = [] } = req.body ?? {};
   if (!message) return res.status(400).json({ error: 'Brak wiadomości' });
 
-  // Ogranicz historię do ostatnich 10 wiadomości (żeby nie przekroczyć limitu tokenów)
   const trimmedHistory = history.slice(-10);
 
   try {
-    const anthropicRes = await fetch('https://api.anthropic.com/v1/messages', {
+    const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'content-type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
+        model: 'llama-3.1-8b-instant',
         max_tokens: 1024,
-        system: AI_SYSTEM_PROMPT,
+        temperature: 0.3,
         messages: [
+          { role: 'system', content: AI_SYSTEM_PROMPT },
           ...trimmedHistory.map(m => ({ role: m.role, content: m.content })),
           { role: 'user', content: message },
         ],
@@ -625,16 +624,15 @@ app.post('/api/ai-chat', async (req, res) => {
       timeout: 20000,
     });
 
-    if (!anthropicRes.ok) {
-      const err = await anthropicRes.text();
-      console.error('[ai-chat] Anthropic error:', err);
-      return res.status(502).json({ error: 'Błąd API Anthropic' });
+    if (!groqRes.ok) {
+      const err = await groqRes.text();
+      console.error('[ai-chat] Groq error:', err);
+      return res.status(502).json({ error: 'Błąd API Groq' });
     }
 
-    const data = await anthropicRes.json();
-    const rawText = data.content?.[0]?.text ?? '';
+    const data = await groqRes.json();
+    const rawText = data.choices?.[0]?.message?.content ?? '';
 
-    // Wyciągnij filtry z tagu <filters>
     const filtersMatch = rawText.match(/<filters>([\s\S]*?)<\/filters>/);
     let filters = null;
     const reply = rawText.replace(/<filters>[\s\S]*?<\/filters>/g, '').trim();
