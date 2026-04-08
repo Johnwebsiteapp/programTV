@@ -2,7 +2,7 @@
 // AI CHAT — Asystent programu TV oparty na Claude
 // ============================================================
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { X, Send, Bot, User, Star, Tv, Loader2, AlertCircle, ExternalLink } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
 import { batchSearchFilmweb, FilmwebData } from '../../api/filmwebApi';
@@ -257,7 +257,7 @@ export function AIChatModal({ onClose }: Props) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center">
+    <div className="fixed inset-0 z-[60] flex items-end justify-center">
       {/* Backdrop */}
       <div
         className={clsx('absolute inset-0 bg-black/60 backdrop-blur-sm modal-backdrop', sheetVisible ? 'modal-visible' : 'modal-hidden')}
@@ -300,11 +300,33 @@ export function AIChatModal({ onClose }: Props) {
             />
           ))}
 
+          {/* Sugerowane zapytania — widoczne tylko gdy brak wiadomości użytkownika */}
+          {messages.length === 1 && !loading && (
+            <div className="flex flex-col gap-2 pt-1">
+              <p className="text-[11px] text-gray-400 dark:text-gray-500 font-medium px-1">Spróbuj zapytać:</p>
+              {[
+                'Filmy akcji od 2015 z oceną powyżej 7',
+                'Co dobrego jest dziś wieczór?',
+                'Seriale kryminalne na ten tydzień',
+                'Najlepsze komedie z ostatnich lat',
+                'Filmy familijne na jutro',
+              ].map(suggestion => (
+                <button
+                  key={suggestion}
+                  onClick={() => { setInput(suggestion); inputRef.current?.focus(); }}
+                  className="text-left text-sm px-3.5 py-2.5 rounded-2xl rounded-tl-sm bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-gray-300 hover:bg-violet-50 dark:hover:bg-violet-900/20 hover:text-violet-700 dark:hover:text-violet-300 transition-colors border border-gray-200 dark:border-slate-700 hover:border-violet-300 dark:hover:border-violet-700"
+                >
+                  {suggestion}
+                </button>
+              ))}
+            </div>
+          )}
+
           {/* Wskaźnik ładowania AI */}
           {loading && messages[messages.length - 1]?.content === '' && !messages[messages.length - 1]?.searching && (
             <div className="flex items-center gap-2 text-gray-400 text-sm">
               <Loader2 size={14} className="animate-spin" />
-              <span>Claude myśli...</span>
+              <span>Asystent myśli...</span>
             </div>
           )}
 

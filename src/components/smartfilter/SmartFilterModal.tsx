@@ -638,7 +638,7 @@ export function SmartFilterModal({ onClose }: Props) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center"
+    <div className="fixed inset-0 z-[60] flex items-end justify-center"
          style={{ paddingTop: 'max(env(safe-area-inset-top), 48px)' }}>
       <div
         className={clsx('absolute inset-0 bg-black/50 backdrop-blur-sm modal-backdrop', sheetVisible ? 'modal-visible' : 'modal-hidden')}
