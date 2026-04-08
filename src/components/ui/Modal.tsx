@@ -2,6 +2,7 @@
 import { useEffect, useRef } from 'react';
 import { X } from 'lucide-react';
 import clsx from 'clsx';
+import { useAnimatedMount } from '../../utils/useAnimatedMount';
 
 interface ModalProps {
   isOpen: boolean;
@@ -13,6 +14,7 @@ interface ModalProps {
 
 export function Modal({ isOpen, onClose, title, children, size = 'md' }: ModalProps) {
   const overlayRef = useRef<HTMLDivElement>(null);
+  const { mounted, visible } = useAnimatedMount(isOpen, 350);
 
   // Zamknij modal klawiszem Escape
   useEffect(() => {
@@ -39,7 +41,7 @@ export function Modal({ isOpen, onClose, title, children, size = 'md' }: ModalPr
     };
   }, [isOpen]);
 
-  if (!isOpen) return null;
+  if (!mounted) return null;
 
   const sizeClasses = {
     sm: 'max-w-sm',
@@ -54,13 +56,17 @@ export function Modal({ isOpen, onClose, title, children, size = 'md' }: ModalPr
       onClick={(e) => { if (e.target === overlayRef.current) onClose(); }}
     >
       {/* Tło */}
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+      <div className={clsx(
+        'absolute inset-0 bg-black/60 backdrop-blur-sm modal-backdrop',
+        visible ? 'modal-visible' : 'modal-hidden'
+      )} />
 
       {/* Treść modalu */}
       <div className={clsx(
-        'relative w-full rounded-2xl shadow-2xl animate-fade-in',
+        'relative w-full rounded-2xl shadow-2xl modal-content',
         'bg-white dark:bg-slate-800',
         'border border-gray-200 dark:border-slate-700',
+        visible ? 'modal-visible' : 'modal-hidden',
         sizeClasses[size]
       )}>
         {/* Nagłówek */}

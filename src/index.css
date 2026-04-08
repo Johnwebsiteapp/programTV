@@ -178,6 +178,27 @@
     to   { opacity: 1; transform: translateY(0); }
   }
 
+  /* Animacja wejścia widoku (przy zmianie zakładki) */
+  .animate-view-enter {
+    animation: view-enter 0.22s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+  }
+
+  @keyframes view-enter {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Animacja rozwijania dropdown */
+  .animate-slide-down {
+    animation: slide-down 0.2s cubic-bezier(0.34, 1.2, 0.64, 1) both;
+    transform-origin: top center;
+  }
+
+  @keyframes slide-down {
+    from { opacity: 0; transform: scaleY(0.85) translateY(-6px); }
+    to   { opacity: 1; transform: scaleY(1) translateY(0); }
+  }
+
   /* Pasek postępu programu */
   .progress-bar {
     @apply absolute bottom-0 left-0 h-0.5 bg-primary-400 opacity-70;
@@ -198,4 +219,51 @@
     from { transform: rotate(0deg); }
     to   { transform: rotate(360deg); }
   }
+}
+
+/* ── ANIMOWANE OKNA (modal, panel boczny) ─────────────────── */
+
+/* Tło/overlay modalu */
+.modal-backdrop {
+  transition: opacity 0.3s ease;
+}
+.modal-backdrop.modal-hidden { opacity: 0; }
+.modal-backdrop.modal-visible { opacity: 1; }
+
+/* Treść modalu — mobile: wjeżdża od dołu, desktop: skaluje się */
+.modal-content {
+  transition: opacity 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+              transform 0.35s cubic-bezier(0.34, 1.18, 0.64, 1);
+  will-change: transform, opacity;
+}
+.modal-content.modal-hidden {
+  opacity: 0;
+  transform: translateY(calc(100% + 1rem));
+}
+.modal-content.modal-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+@media (min-width: 640px) {
+  .modal-content.modal-hidden {
+    transform: scale(0.94) translateY(-10px);
+  }
+  .modal-content.modal-visible {
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* Panel boczny — wjeżdża z prawej */
+.panel-slide {
+  transition: transform 0.35s cubic-bezier(0.34, 1.1, 0.64, 1),
+              opacity 0.3s ease;
+  will-change: transform, opacity;
+}
+.panel-slide.panel-hidden {
+  transform: translateX(100%);
+  opacity: 0;
+}
+.panel-slide.panel-visible {
+  transform: translateX(0);
+  opacity: 1;
 }

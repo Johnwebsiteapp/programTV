@@ -5,13 +5,14 @@
 // ustawienia przypomnienia bezpośrednio z listy.
 // ============================================================
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import { X, Bell, BellOff, ChevronLeft, ChevronRight, Heart, Clock, ChevronDown } from 'lucide-react';
 import { startOfDay, isSameDay, addDays, format, isToday, isTomorrow } from 'date-fns';
 import { pl } from 'date-fns/locale';
 import { useAppStore } from '../../store/useAppStore';
 import { GenreBadge } from '../ui/Badge';
 import { formatTime, formatDuration, isNowPlaying, isFinished, NOTIFICATION_OPTIONS } from '../../utils/dateUtils';
+import { useAnimatedMount } from '../../utils/useAnimatedMount';
 import clsx from 'clsx';
 
 export function ChannelView() {
@@ -26,6 +27,12 @@ export function ChannelView() {
   const [viewDate, setViewDate] = useState<Date>(startOfDay(new Date()));
   // Dla którego programu pokazywane są opcje powiadomień
   const [notifOpenFor, setNotifOpenFor] = useState<string | null>(null);
+
+  // Animacja wejścia/wyjścia panelu
+  const { mounted, visible } = useAnimatedMount(!!selectedChannel, 350);
+  // Zachowaj ostatni kanał podczas animacji wyjścia (ref aktualizowany synchronicznie)
+  const lastChannelRef = useRef(selectedChannel);
+  if (selectedChannel) lastChannelRef.current = selectedChannel;
 
   // Programy dla wybranego kanału i dnia (hooki przed early return!)
   const dayPrograms = useMemo(() => {
@@ -47,9 +54,9 @@ export function ChannelView() {
       .sort((a, b) => a.getTime() - b.getTime());
   }, [programs, selectedChannel]);
 
-  if (!selectedChannel) return null;
+  if (!mounted || !lastChannelRef.current) return null;
 
-  const channel = selectedChannel;
+  const channel = lastChannelRef.current;
   const now = new Date();
 
   const currentDayIndex = availableDays.findIndex(d => isSameDay(d, viewDate));
@@ -81,12 +88,18 @@ export function ChannelView() {
     <>
       {/* Overlay */}
       <div
-        className="fixed inset-0 bg-black/40 z-40"
+        className={clsx(
+          'fixed inset-0 bg-black/40 z-40 modal-backdrop',
+          visible ? 'modal-visible' : 'modal-hidden'
+        )}
         onClick={() => setSelectedChannel(null)}
       />
 
       {/* Panel — wysuwa się z prawej */}
-      <div className="fixed inset-y-0 right-0 w-full max-w-md bg-white dark:bg-slate-900 z-50 flex flex-col shadow-2xl">
+      <div className={clsx(
+        'fixed inset-y-0 right-0 w-full max-w-md bg-white dark:bg-slate-900 z-50 flex flex-col shadow-2xl panel-slide',
+        visible ? 'panel-visible' : 'panel-hidden'
+      )}>
 
         {/* Nagłówek kanału */}
         <div className="bg-primary-600 dark:bg-primary-800 px-4 pt-5 pb-4 flex-shrink-0">

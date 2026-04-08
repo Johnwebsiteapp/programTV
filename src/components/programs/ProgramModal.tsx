@@ -212,7 +212,7 @@ export function ProgramModal() {
 
               {/* Opcje czasu powiadomień */}
               {showNotifOptions && !hasNotif && (
-                <div className="mt-1 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl shadow-lg overflow-hidden">
+                <div className="mt-1 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl shadow-lg overflow-hidden animate-slide-down">
                   {NOTIFICATION_OPTIONS.map(opt => {
                     const scheduledAt = new Date(program.startTime.getTime() - opt.value * 60 * 1000);
                     const isPast = scheduledAt < new Date();

@@ -55,8 +55,8 @@ export default function App() {
           {/* Pasek filtrów (tylko w widoku EPG) */}
           {activeView === 'epg' && <FilterBar />}
 
-          {/* Widoki */}
-          <div className="flex-1 overflow-hidden">
+          {/* Widoki — key powoduje remount i animację wejścia przy zmianie zakładki */}
+          <div key={activeView} className="flex-1 overflow-hidden animate-view-enter">
             {activeView === 'home' && <HomeView />}
 
             {activeView === 'epg' && <EPGGrid />}
