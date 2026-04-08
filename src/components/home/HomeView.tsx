@@ -3,9 +3,10 @@
 // ============================================================
 
 import { useMemo, useState, useEffect } from 'react';
-import { Bell, ChevronRight, Sparkles, Film, Star, X, Globe, Tag, Calendar } from 'lucide-react';
+import { Bell, ChevronRight, Sparkles, Film, Star, X, Globe, Tag, Calendar, Bot } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
 import { SmartFilterModal } from '../smartfilter/SmartFilterModal';
+import { AIChatModal } from '../chat/AIChatModal';
 import { getCinemaMovies, FilmwebData } from '../../api/filmwebApi';
 import clsx from 'clsx';
 
@@ -36,6 +37,7 @@ function formatTime(date: Date): string {
 export function HomeView() {
   const { channels, programs, setActiveView, setSelectedProgram, setSelectedChannel, addNotification, hasNotification } = useAppStore();
   const [showSmartFilter, setShowSmartFilter] = useState(false);
+  const [showAIChat, setShowAIChat] = useState(false);
   const [cinemaMovies, setCinemaMovies] = useState<FilmwebData[]>([]);
   const [cinemaLoading, setCinemaLoading] = useState(true);
   const [selectedCinemaFilm, setSelectedCinemaFilm] = useState<FilmwebData | null>(null);
@@ -96,6 +98,21 @@ export function HomeView() {
           </div>
           <ChevronRight size={18} className="text-white/70" />
         </button>
+
+        {/* AI Chat button */}
+        <button
+          onClick={() => setShowAIChat(true)}
+          className="mt-3 w-full flex items-center gap-3 bg-gradient-to-r from-violet-600 to-purple-700 text-white rounded-2xl px-4 py-3.5 shadow-lg shadow-violet-200 dark:shadow-violet-900/30 hover:from-violet-700 hover:to-purple-800 transition-all active:scale-95"
+        >
+          <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center flex-shrink-0">
+            <Bot size={18} className="text-white" />
+          </div>
+          <div className="flex-1 text-left">
+            <p className="font-bold text-sm leading-tight">Asystent AI</p>
+            <p className="text-white/70 text-[11px]">Zapytaj o filmy i seriale w TV</p>
+          </div>
+          <ChevronRight size={18} className="text-white/70" />
+        </button>
       </div>
 
       {/* ── Nowości w kinie ─────────────────────────────────── */}
@@ -135,6 +152,11 @@ export function HomeView() {
     {/* Smart Filter Modal */}
     {showSmartFilter && (
       <SmartFilterModal onClose={() => setShowSmartFilter(false)} />
+    )}
+
+    {/* AI Chat Modal */}
+    {showAIChat && (
+      <AIChatModal onClose={() => setShowAIChat(false)} />
     )}
 
     {/* Modal szczegółów filmu kinowego */}
