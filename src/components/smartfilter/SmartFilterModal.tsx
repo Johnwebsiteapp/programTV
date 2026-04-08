@@ -2,7 +2,7 @@
 // SMART FILTER — Inteligentne wyszukiwanie filmów/seriali
 // ============================================================
 
-import { useState, useCallback, useMemo, useEffect } from 'react';
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { X, Sparkles, Search, Star, Calendar, Globe, Tag, Tv, ExternalLink, ChevronLeft, ChevronRight, ChevronDown, Heart } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
 import { batchSearchFilmweb, FilmwebData } from '../../api/filmwebApi';
@@ -141,6 +141,10 @@ export function SmartFilterModal({ onClose }: Props) {
   const [weekOffset, setWeekOffset] = useState(0);
   // Aktywna zakładka dnia w widoku wyników (null = wszystkie)
   const [activeDay, setActiveDay] = useState<string | null>(null);
+
+  // Refy do przewijania do sekcji gatunków
+  const genreSectionRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  const resultsScrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const scrollY = window.scrollY;
@@ -487,20 +491,33 @@ export function SmartFilterModal({ onClose }: Props) {
 
   // ── Render: wyniki ────────────────────────────────────────
   const renderResults = () => {
-    // Unikalne dni w wynikach (zachowaj kolejność)
     const dayOrder = ['Dziś', 'Jutro', ...DAY_NAMES];
     const daysInResults = [...new Set(results.map(r => r.dayLabel))]
       .sort((a, b) => dayOrder.indexOf(a) - dayOrder.indexOf(b));
 
-    // Filtruj wyniki wg aktywnej zakładki
     const visibleResults = activeDay ? results.filter(r => r.dayLabel === activeDay) : results;
 
-    // Grupuj widoczne wyniki po dniu
-    const byDay: Record<string, FilteredProgram[]> = {};
+    // Grupuj po gatunku (pierwszy gatunek Filmweb)
+    const genreGroups = new Map<string, FilteredProgram[]>();
     for (const item of visibleResults) {
-      if (!byDay[item.dayLabel]) byDay[item.dayLabel] = [];
-      byDay[item.dayLabel].push(item);
+      const raw = item.filmweb?.genres?.[0] ?? 'Inne';
+      const genre = raw.charAt(0).toUpperCase() + raw.slice(1);
+      if (!genreGroups.has(genre)) genreGroups.set(genre, []);
+      genreGroups.get(genre)!.push(item);
     }
+    const sortedGenres = [...genreGroups.keys()].sort((a, b) => {
+      if (a === 'Inne') return 1;
+      if (b === 'Inne') return -1;
+      return genreGroups.get(b)!.length - genreGroups.get(a)!.length;
+    });
+
+    const scrollToGenre = (genre: string) => {
+      const el = genreSectionRefs.current.get(genre);
+      const container = resultsScrollRef.current;
+      if (el && container) {
+        container.scrollTo({ top: el.offsetTop, behavior: 'smooth' });
+      }
+    };
 
     return (
       <div className="flex-1 flex flex-col min-h-0">
@@ -520,7 +537,7 @@ export function SmartFilterModal({ onClose }: Props) {
 
           {/* Zakładki dni */}
           {daysInResults.length > 1 && (
-            <div className="flex gap-1.5 overflow-x-auto pb-0.5 scrollbar-hide">
+            <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-hide">
               <button
                 onClick={() => setActiveDay(null)}
                 className={clsx(
@@ -551,10 +568,29 @@ export function SmartFilterModal({ onClose }: Props) {
               })}
             </div>
           )}
+
+          {/* Przyciski gatunków — kotwice przewijania */}
+          {sortedGenres.length > 1 && (
+            <div className="flex gap-1.5 overflow-x-auto pt-1 scrollbar-hide">
+              {sortedGenres.map(genre => (
+                <button
+                  key={genre}
+                  onClick={() => scrollToGenre(genre)}
+                  className="flex-shrink-0 px-2.5 py-0.5 rounded-full text-[10px] font-bold border bg-white dark:bg-slate-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-slate-600 hover:border-primary-500 hover:text-primary-600 dark:hover:text-primary-400 transition-all capitalize"
+                >
+                  {genre} <span className="text-gray-400">({genreGroups.get(genre)!.length})</span>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Lista wyników */}
-        <div className="flex-1 overflow-y-auto" style={{ WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain' } as React.CSSProperties}>
+        <div
+          ref={resultsScrollRef}
+          className="flex-1 overflow-y-auto"
+          style={{ WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain' } as React.CSSProperties}
+        >
           {visibleResults.length === 0 ? (
             <div className="flex flex-col items-center justify-center min-h-[200px] px-8 text-center gap-3 py-8">
               <Search size={32} className="text-gray-300" />
@@ -568,18 +604,21 @@ export function SmartFilterModal({ onClose }: Props) {
             </div>
           ) : (
             <>
-              {Object.entries(byDay).map(([day, items]) => (
-                <div key={day}>
-                  {/* Nagłówek dnia — tylko gdy pokazujemy wszystkie */}
-                  {!activeDay && (
-                    <div className="px-4 py-2 bg-gray-50 dark:bg-slate-900 sticky top-0 z-10">
-                      <span className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                        {day} — {pluralFilms(items.length)}
-                      </span>
-                    </div>
-                  )}
-                  <div className="px-4 pb-2 flex flex-col gap-2 pt-2">
-                    {items.map(item => (
+              {sortedGenres.map(genre => (
+                <div
+                  key={genre}
+                  ref={el => {
+                    if (el) genreSectionRefs.current.set(genre, el);
+                    else genreSectionRefs.current.delete(genre);
+                  }}
+                >
+                  {/* Nagłówek gatunku */}
+                  <div className="px-4 py-2 bg-gray-50 dark:bg-slate-900 sticky top-0 z-10 flex items-center gap-2 border-b border-gray-100 dark:border-slate-800">
+                    <span className="text-xs font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wider capitalize">{genre}</span>
+                    <span className="text-[10px] text-gray-400">— {pluralFilms(genreGroups.get(genre)!.length)}</span>
+                  </div>
+                  <div className="px-4 pt-2 pb-3 flex flex-col gap-2">
+                    {genreGroups.get(genre)!.map(item => (
                       <ResultCard
                         key={`${item.program.id}-${item.program.startTime.getTime()}`}
                         item={item}
