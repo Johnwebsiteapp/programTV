@@ -66,7 +66,10 @@ async function runSearch(
   const weekStart = new Date(todayStart.getTime() + (filters.weekOffset ?? 0) * 7 * 24 * 60 * 60 * 1000);
   const weekEnd = new Date(weekStart.getTime() + 7 * 24 * 60 * 60 * 1000);
 
+  const visibleChannelIds = new Set(channels.filter(c => c.isVisible).map(c => c.id));
+
   const candidates = programs.filter(p => {
+    if (!visibleChannelIds.has(p.channelId)) return false;
     if (p.startTime < weekStart || p.startTime >= weekEnd) return false;
     if (p.endTime < now) return false; // skip already ended
     if (filters.selectedDays?.length) {

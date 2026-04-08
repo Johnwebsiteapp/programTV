@@ -81,7 +81,7 @@ export function HomeView() {
           {new Date().toLocaleDateString('pl-PL', { weekday: 'long', day: 'numeric', month: 'long' })}
         </p>
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white mt-0.5">
-          {getGreeting()}, Jan 👋
+          {getGreeting()} 👋
         </h1>
 
         {/* Smart Filter button */}

@@ -179,8 +179,11 @@ export function SmartFilterModal({ onClose }: Props) {
     return { searchStart: start, searchEnd: end, weekLabel: label, availableDays: days };
   }, [weekOffset]);
 
+  const visibleChannelIds = useMemo(() => new Set(channels.filter(c => c.isVisible).map(c => c.id)), [channels]);
+
   const candidatePrograms = useMemo(() => {
     return programs.filter(p => {
+      if (!visibleChannelIds.has(p.channelId)) return false;
       if (p.startTime < searchStart || p.startTime >= searchEnd) return false;
       // Filtr dni tygodnia
       if (criteria.selectedDays && criteria.selectedDays.length > 0) {
@@ -191,7 +194,7 @@ export function SmartFilterModal({ onClose }: Props) {
       if (criteria.types.includes('serial') && p.genre === 'series') return true;
       return false;
     });
-  }, [programs, criteria.types, criteria.selectedDays, searchStart, searchEnd]);
+  }, [programs, visibleChannelIds, criteria.types, criteria.selectedDays, searchStart, searchEnd]);
 
   const passesNonRatingFilters = useCallback((p: Program, fw: FilmwebData | null): boolean => {
     if (fw?.year && fw.year < criteria.minYear) return false;
