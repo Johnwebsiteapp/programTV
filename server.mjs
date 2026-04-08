@@ -309,9 +309,10 @@ const COUNTRY_CODES = {
   IR: 'Iran', TH: 'Tajlandia', TW: 'Tajwan', HK: 'Hongkong',
 };
 
-/** Buduje URL Filmweb — wymagany format: /film/cokolwiek-{id} */
-function buildFilmwebUrl(type, _title, _year, id) {
-  return `https://www.filmweb.pl/${type}/film-${id}`;
+/** Buduje URL Filmweb: /{type}/{tytuł+ze+spacjami}-{rok}-{id} */
+function buildFilmwebUrl(type, title, year, id) {
+  const slug = String(title ?? 'film').replace(/ /g, '+');
+  return `https://www.filmweb.pl/${type}/${slug}-${year}-${id}`;
 }
 
 const FILMWEB_HEADERS = {
@@ -396,7 +397,7 @@ async function searchFilmweb(title) {
       genres,
       countries,
       type:          filmType.toUpperCase(), // "FILM" | "SERIAL"
-      filmwebUrl:    buildFilmwebUrl(filmType, null, null, filmId),
+      filmwebUrl:    buildFilmwebUrl(filmType, preview.title?.title ?? origTitle ?? title, preview.year, filmId),
       poster:        posterPath ? `https://fwcdn.pl${posterPath}` : null,
     };
 
@@ -470,7 +471,7 @@ app.get('/api/filmweb/cinema', async (req, res) => {
             genres:    (preview.genres ?? []).map(g => g?.name?.text?.toLowerCase?.() ?? '').filter(Boolean),
             countries: (preview.countries ?? []).map(c => COUNTRY_CODES[c?.code] ?? c?.code ?? '').filter(Boolean),
             type:      preview.entityName ?? 'film',
-            filmwebUrl: buildFilmwebUrl('film', null, null, id),
+            filmwebUrl: buildFilmwebUrl(preview.entityName?.toLowerCase() ?? 'film', title, preview.year, id),
             poster,
             synopsis:  (() => { const s = preview.plot?.synopsis ?? preview.description ?? null; return (s && typeof s === 'object') ? (s.synopsis ?? null) : s; })(),
           };
