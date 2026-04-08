@@ -314,7 +314,7 @@ export function AIChatModal({ onClose }: Props) {
               onKeyDown={handleKeyDown}
               placeholder="Np. filmy akcji od 2020 z oceną powyżej 7..."
               disabled={loading}
-              className="flex-1 px-4 py-3 text-sm rounded-2xl border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-violet-500 disabled:opacity-50 transition-all"
+              className="flex-1 px-4 py-3 text-base rounded-2xl border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-violet-500 disabled:opacity-50 transition-all"
             />
             <button
               onClick={handleSend}
