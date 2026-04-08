@@ -207,6 +207,19 @@ function filmwebLink(film: FilmwebData): string {
 function CinemaDetailModal({ film, onClose }: { film: FilmwebData; onClose: () => void }) {
   const url = posterUrl(film.poster);
 
+  // Animacja wejścia/wyjścia
+  const [visible, setVisible] = useState(false);
+  const [closing, setClosing] = useState(false);
+  useEffect(() => {
+    const f1 = requestAnimationFrame(() => {
+      const f2 = requestAnimationFrame(() => setVisible(true));
+      return () => cancelAnimationFrame(f2);
+    });
+    return () => cancelAnimationFrame(f1);
+  }, []);
+  const handleClose = () => { setClosing(true); setTimeout(onClose, 320); };
+  const sheetVisible = visible && !closing;
+
   // Blokada scrolla tła
   useEffect(() => {
     const scrollY = window.scrollY;
@@ -227,21 +240,21 @@ function CinemaDetailModal({ film, onClose }: { film: FilmwebData; onClose: () =
     <div className="fixed inset-0 z-50 flex items-end justify-center">
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        className={clsx('absolute inset-0 bg-black/60 backdrop-blur-sm modal-backdrop', sheetVisible ? 'modal-visible' : 'modal-hidden')}
         style={{ touchAction: 'none' }}
-        onClick={onClose}
+        onClick={handleClose}
       />
 
       {/* Sheet */}
       <div
-        className="relative w-full max-w-lg bg-white dark:bg-slate-900 rounded-t-3xl shadow-2xl flex flex-col"
+        className={clsx('relative w-full max-w-lg bg-white dark:bg-slate-900 rounded-t-3xl shadow-2xl flex flex-col sheet-panel', sheetVisible ? 'sheet-visible' : 'sheet-hidden')}
         style={{ maxHeight: 'min(92svh, 92vh)', overscrollBehavior: 'contain' }}
       >
         {/* Uchwyt + zamknij */}
         <div className="flex-shrink-0 pt-3 pb-0 flex items-center justify-center relative">
           <div className="w-10 h-1 bg-gray-300 dark:bg-slate-600 rounded-full" />
           <button
-            onClick={onClose}
+            onClick={handleClose}
             className="absolute right-4 w-8 h-8 rounded-full bg-gray-100 dark:bg-slate-800 flex items-center justify-center text-gray-500"
           >
             <X size={16} style={{ pointerEvents: 'none' }} />

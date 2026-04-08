@@ -106,6 +106,22 @@ interface Props {
 export function SmartFilterModal({ onClose }: Props) {
   const { programs, channels, addFavorite, isFavoriteProgram } = useAppStore();
 
+  // Animacja wejścia/wyjścia
+  const [visible, setVisible] = useState(false);
+  const [closing, setClosing] = useState(false);
+  useEffect(() => {
+    const f1 = requestAnimationFrame(() => {
+      const f2 = requestAnimationFrame(() => setVisible(true));
+      return () => cancelAnimationFrame(f2);
+    });
+    return () => cancelAnimationFrame(f1);
+  }, []);
+  const handleClose = () => {
+    setClosing(true);
+    setTimeout(onClose, 320);
+  };
+  const sheetVisible = visible && !closing;
+
   const [criteria, setCriteria] = useState<SmartFilterCriteria>(() => {
     const prefs = loadPrefs();
     return {
@@ -582,9 +598,15 @@ export function SmartFilterModal({ onClose }: Props) {
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center"
          style={{ paddingTop: 'max(env(safe-area-inset-top), 48px)' }}>
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" style={{ touchAction: 'none' }} onClick={onClose} />
-      <div className="relative w-full max-w-lg bg-white dark:bg-slate-900 rounded-t-3xl shadow-2xl flex flex-col"
-           style={{ maxHeight: '100%', overscrollBehavior: 'contain' }}>
+      <div
+        className={clsx('absolute inset-0 bg-black/50 backdrop-blur-sm modal-backdrop', sheetVisible ? 'modal-visible' : 'modal-hidden')}
+        style={{ touchAction: 'none' }}
+        onClick={handleClose}
+      />
+      <div
+        className={clsx('relative w-full max-w-lg bg-white dark:bg-slate-900 rounded-t-3xl shadow-2xl flex flex-col sheet-panel', sheetVisible ? 'sheet-visible' : 'sheet-hidden')}
+        style={{ maxHeight: '100%', overscrollBehavior: 'contain' }}
+      >
 
         {/* Nagłówek */}
         <div className="flex-shrink-0 px-4 pt-3 pb-3 border-b border-gray-100 dark:border-slate-800">
@@ -599,7 +621,7 @@ export function SmartFilterModal({ onClose }: Props) {
                 <p className="text-[10px] text-gray-400">{phase === 'results' ? `${results.length} wyników` : 'Filtruj z Filmweb'}</p>
               </div>
             </div>
-            <button onClick={onClose} className="w-8 h-8 rounded-full bg-gray-100 dark:bg-slate-800 flex items-center justify-center text-gray-500 hover:text-gray-700 transition-colors">
+            <button onClick={handleClose} className="w-8 h-8 rounded-full bg-gray-100 dark:bg-slate-800 flex items-center justify-center text-gray-500 hover:text-gray-700 transition-colors">
               <X size={16} />
             </button>
           </div>
