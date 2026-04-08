@@ -141,6 +141,9 @@ interface Props {
 export function AIChatModal({ onClose }: Props) {
   const { programs, channels, setSelectedProgram } = useAppStore();
 
+  // Zamroź wysokość przy montowaniu — klawiatura mobilna nie zmieni rozmiaru modalu
+  const [sheetHeight] = useState(() => Math.round(window.innerHeight * 0.88));
+
   // Animacja wejścia/wyjścia
   const [visible, setVisible] = useState(false);
   const [closing, setClosing] = useState(false);
@@ -261,7 +264,7 @@ export function AIChatModal({ onClose }: Props) {
           'relative w-full max-w-lg bg-white dark:bg-slate-900 rounded-t-3xl shadow-2xl flex flex-col sheet-panel',
           sheetVisible ? 'sheet-visible' : 'sheet-hidden'
         )}
-        style={{ height: 'min(88svh, 88vh)', overscrollBehavior: 'contain' }}
+        style={{ height: sheetHeight, overscrollBehavior: 'contain' }}
       >
         {/* Nagłówek */}
         <div className="flex-shrink-0 flex items-center gap-3 px-4 pt-4 pb-3 border-b border-gray-100 dark:border-slate-800">
@@ -270,7 +273,7 @@ export function AIChatModal({ onClose }: Props) {
           </div>
           <div className="flex-1 min-w-0">
             <p className="font-bold text-sm text-gray-900 dark:text-white">Asystent TV</p>
-            <p className="text-[11px] text-gray-400">Powered by Claude AI</p>
+            <p className="text-[11px] text-gray-400">Powered by Groq AI</p>
           </div>
           <button
             onClick={handleClose}
