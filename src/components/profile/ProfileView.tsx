@@ -94,13 +94,13 @@ export function ProfileView() {
             <button
               onClick={toggleDarkMode}
               className={clsx(
-                'relative w-11 h-6 rounded-full transition-colors duration-200 flex-shrink-0',
+                'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200',
                 darkMode ? 'bg-primary-600' : 'bg-gray-200 dark:bg-slate-600'
               )}
             >
               <span className={clsx(
-                'absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200',
-                darkMode ? 'translate-x-5' : 'translate-x-0.5'
+                'pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow ring-0 transition-transform duration-200',
+                darkMode ? 'translate-x-5' : 'translate-x-0'
               )} />
             </button>
           </div>
