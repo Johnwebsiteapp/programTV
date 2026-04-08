@@ -142,7 +142,11 @@ export function AIChatModal({ onClose }: Props) {
   const { programs, channels, setSelectedProgram } = useAppStore();
 
   // Zamroź wysokość przy montowaniu — klawiatura mobilna nie zmieni rozmiaru modalu
-  const [sheetHeight] = useState(() => Math.round(window.innerHeight * 0.88));
+  // visualViewport.height daje dokładniejszy wynik na Android Chrome
+  const [sheetHeight] = useState(() => {
+    const h = window.visualViewport?.height ?? window.innerHeight;
+    return Math.round(h * 0.88);
+  });
 
   // Animacja wejścia/wyjścia
   const [visible, setVisible] = useState(false);
@@ -305,7 +309,8 @@ export function AIChatModal({ onClose }: Props) {
         </div>
 
         {/* Input */}
-        <div className="flex-shrink-0 px-4 pb-4 pt-3 border-t border-gray-100 dark:border-slate-800">
+        <div className="flex-shrink-0 px-4 pt-3 border-t border-gray-100 dark:border-slate-800"
+          style={{ paddingBottom: 'max(16px, env(safe-area-inset-bottom))' }}>
           <div className="flex gap-2 items-end">
             <input
               ref={inputRef}

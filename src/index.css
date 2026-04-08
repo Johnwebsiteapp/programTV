@@ -61,15 +61,31 @@
 @layer base {
   html {
     scroll-behavior: smooth;
+    /* Pełny ekran na Android z gestami (Xiaomi) */
+    height: 100%;
   }
 
   body {
     @apply bg-gray-50 text-gray-900 font-sans antialiased;
     -webkit-tap-highlight-color: transparent;
+    /* Zapobiega bounce scroll na Android Chrome */
+    overscroll-behavior: none;
+    height: 100%;
+  }
+
+  /* Wyłącz domyślne podświetlenie przycisków na Android */
+  button, a {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
   }
 
   .dark body {
     @apply bg-slate-900 text-slate-200;
+  }
+
+  /* Safe area — dolna nawigacja na telefonach z gestami */
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
   }
 
   /* Pasek przewijania — styl */
