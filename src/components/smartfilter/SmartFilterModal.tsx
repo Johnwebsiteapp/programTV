@@ -234,9 +234,10 @@ export function SmartFilterModal({ onClose }: Props) {
       const ch = channels.find(c => c.id === program.channelId);
       if (!ch) continue;
 
-      if (criteria.minRating > 0 && fw?.rate != null) {
-        const effectiveMin = criteria.minRating - RATING_TOLERANCE;
-        if (fw.rate < effectiveMin) continue;
+      if (criteria.minRating > 0) {
+        // Brak danych Filmweb = brak oceny → wyklucz gdy wymagana minimalna ocena
+        if (fw?.rate == null) continue;
+        if (fw.rate < criteria.minRating - RATING_TOLERANCE) continue;
       }
 
       if (!passesNonRatingFilters(program, fw)) continue;
