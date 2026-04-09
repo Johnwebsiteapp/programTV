@@ -38,6 +38,7 @@ interface AppState {
   showAIChat: boolean;
 
   // ── DANE UŻYTKOWNIKA (persystowane) ──────────────────
+  nickname: string;                // Pseudonim użytkownika
   favorites: Favorite[];           // Ulubione programy
   notifications: Notification[];   // Zaplanowane powiadomienia
   categories: Category[];          // Niestandardowe kategorie
@@ -74,6 +75,9 @@ interface AppState {
   removeNotification: (notificationId: string) => void;
   markNotificationFired: (notificationId: string) => void;
   hasNotification: (programId: string) => boolean;
+
+  // Nickname
+  setNickname: (name: string) => void;
 
   // Kategorie
   addCategory: (name: string, color: string, rules: Omit<CategoryRule, 'id'>[], logic: 'AND' | 'OR') => void;
@@ -115,6 +119,7 @@ export const useAppStore = create<AppState>()(
       showSmartFilter: false,
       showAIChat: false,
 
+      nickname: '',
       favorites: [],
       notifications: [],
       categories: [],
@@ -166,6 +171,8 @@ export const useAppStore = create<AppState>()(
           document.documentElement.classList.toggle('dark', newMode);
           return { darkMode: newMode };
         }),
+
+      setNickname: (name) => set({ nickname: name.trim() }),
 
       setSelectedProgram: (program) => set({ selectedProgram: program }),
       setSelectedChannel: (channel) => set({ selectedChannel: channel }),

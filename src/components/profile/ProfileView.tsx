@@ -2,12 +2,15 @@
 // PROFIL UŻYTKOWNIKA — TV Stream design
 // ============================================================
 
-import { User, Heart, Bell, Moon, Sun, Globe, Shield, LogOut, ChevronRight, Star } from 'lucide-react';
+import { useState } from 'react';
+import { User, Heart, Bell, Moon, Sun, Globe, Shield, LogOut, ChevronRight, Star, Pencil, Check } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
 import clsx from 'clsx';
 
 export function ProfileView() {
-  const { favorites, notifications, darkMode, toggleDarkMode, setActiveView } = useAppStore();
+  const { favorites, notifications, darkMode, nickname, toggleDarkMode, setActiveView, setNickname } = useAppStore();
+  const [editingNick, setEditingNick] = useState(false);
+  const [nickInput, setNickInput] = useState(nickname);
 
   const pendingNotifs = notifications.filter(n => !n.fired && !n.dismissed).length;
   const watchedCount = favorites.filter(f => f.watched).length;
@@ -24,7 +27,38 @@ export function ProfileView() {
             <Star size={12} className="text-white fill-white" />
           </div>
         </div>
-        <h2 className="text-xl font-bold text-gray-900 dark:text-white">Użytkownik TV</h2>
+        {editingNick ? (
+          <div className="flex items-center gap-2 mt-1">
+            <input
+              autoFocus
+              value={nickInput}
+              onChange={e => setNickInput(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter') { setNickname(nickInput); setEditingNick(false); }
+                if (e.key === 'Escape') { setNickInput(nickname); setEditingNick(false); }
+              }}
+              maxLength={30}
+              placeholder="Twój pseudonim…"
+              className="text-center text-lg font-bold bg-gray-100 dark:bg-slate-800 text-gray-900 dark:text-white rounded-xl px-3 py-1.5 outline-none border-2 border-primary-500 w-44"
+            />
+            <button
+              onClick={() => { setNickname(nickInput); setEditingNick(false); }}
+              className="w-8 h-8 bg-primary-600 rounded-full flex items-center justify-center text-white"
+            >
+              <Check size={16} />
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={() => { setNickInput(nickname); setEditingNick(true); }}
+            className="flex items-center gap-1.5 mt-1 group"
+          >
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+              {nickname || 'Użytkownik TV'}
+            </h2>
+            <Pencil size={14} className="text-gray-400 group-hover:text-primary-600 transition-colors" />
+          </button>
+        )}
         <p className="text-sm text-primary-600 font-medium mt-0.5 flex items-center gap-1">
           <Star size={12} className="fill-primary-600" /> Premium Member
         </p>

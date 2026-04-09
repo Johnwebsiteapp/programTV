@@ -33,7 +33,7 @@ function formatTime(date: Date): string {
 }
 
 export function HomeView() {
-  const { channels, programs, setActiveView, setSelectedProgram, setSelectedChannel, addNotification, hasNotification, setShowSmartFilter, setShowAIChat } = useAppStore();
+  const { channels, programs, nickname, setActiveView, setSelectedProgram, setSelectedChannel, addNotification, hasNotification, setShowSmartFilter, setShowAIChat } = useAppStore();
   const [cinemaMovies, setCinemaMovies] = useState<FilmwebData[]>([]);
   const [cinemaLoading, setCinemaLoading] = useState(true);
   const [selectedCinemaFilm, setSelectedCinemaFilm] = useState<FilmwebData | null>(null);
@@ -77,7 +77,7 @@ export function HomeView() {
           {new Date().toLocaleDateString('pl-PL', { weekday: 'long', day: 'numeric', month: 'long' })}
         </p>
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white mt-0.5">
-          {getGreeting()} 👋
+          {getGreeting()}{nickname ? `, ${nickname}` : ''} 👋
         </h1>
 
         {/* Smart Filter button */}
