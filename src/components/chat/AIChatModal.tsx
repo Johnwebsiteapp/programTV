@@ -491,29 +491,41 @@ function SearchResults({ results, onOpen }: {
                 <span className="text-lg flex-shrink-0 mt-0.5">{channel.logoEmoji}</span>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">{title}</p>
-                  {filmweb && (
-                    <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                      {filmweb.rate != null && (
-                        <span className="flex items-center gap-0.5 text-[11px] font-bold text-amber-500">
-                          <Star size={9} className="fill-amber-400 text-amber-400" />
-                          {filmweb.rate.toFixed(1)}
-                        </span>
-                      )}
-                      {filmweb.year && <span className="text-[11px] text-gray-400">{filmweb.year}</span>}
-                      {filmweb.genres.slice(0, 2).map(g => (
-                        <span key={g} className="text-[10px] px-1.5 py-0.5 bg-violet-50 dark:bg-violet-900/20 text-violet-700 dark:text-violet-300 rounded-full capitalize">{g}</span>
-                      ))}
+                  <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                    {filmweb ? (
+                      <>
+                        {filmweb.rate != null && (
+                          <span className="flex items-center gap-0.5 text-[11px] font-bold text-amber-500">
+                            <Star size={9} className="fill-amber-400 text-amber-400" />
+                            {filmweb.rate.toFixed(1)}
+                          </span>
+                        )}
+                        {filmweb.year && <span className="text-[11px] text-gray-400">{filmweb.year}</span>}
+                        {filmweb.genres.slice(0, 2).map(g => (
+                          <span key={g} className="text-[10px] px-1.5 py-0.5 bg-violet-50 dark:bg-violet-900/20 text-violet-700 dark:text-violet-300 rounded-full capitalize">{g}</span>
+                        ))}
+                        <a
+                          href={filmwebLink(filmweb)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={e => e.stopPropagation()}
+                          className="ml-auto flex items-center gap-1 px-2.5 py-1 rounded-full bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 border border-orange-200 dark:border-orange-700 text-xs font-bold hover:bg-orange-100 dark:hover:bg-orange-900/40 transition-colors"
+                        >
+                          <ExternalLink size={11} /> Filmweb
+                        </a>
+                      </>
+                    ) : (
                       <a
-                        href={filmwebLink(filmweb)}
+                        href={`https://www.imdb.com/find/?q=${encodeURIComponent(title)}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         onClick={e => e.stopPropagation()}
-                        className="ml-auto flex items-center gap-1 px-2.5 py-1 rounded-full bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 border border-orange-200 dark:border-orange-700 text-xs font-bold hover:bg-orange-100 dark:hover:bg-orange-900/40 transition-colors"
+                        className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-yellow-50 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-400 border border-yellow-200 dark:border-yellow-700 text-xs font-bold hover:bg-yellow-100 dark:hover:bg-yellow-900/40 transition-colors"
                       >
-                        <ExternalLink size={11} /> Filmweb
+                        <ExternalLink size={11} /> IMDb
                       </a>
-                    </div>
-                  )}
+                    )}
+                  </div>
                   {/* Liczba emisji */}
                   <div className="flex items-center gap-1 mt-1">
                     <Clock size={10} className="text-violet-500" />
