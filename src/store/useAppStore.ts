@@ -319,6 +319,14 @@ export const useAppStore = create<AppState>()(
       // Odtwarzanie dat po deserializacji z JSON
       onRehydrateStorage: () => (state) => {
         if (!state) return;
+
+        // Dołącz nowe kanały z CHANNELS których jeszcze nie ma w zapisanym stanie
+        const savedIds = new Set(state.channels.map(ch => ch.id));
+        const newChannels = CHANNELS.filter(ch => !savedIds.has(ch.id));
+        if (newChannels.length > 0) {
+          state.channels = [...state.channels, ...newChannels];
+        }
+
         // Daty są serializowane jako string — przywróć je jako Date
         state.favorites = state.favorites.map(f => ({
           ...f,
