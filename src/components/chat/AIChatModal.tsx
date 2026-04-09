@@ -3,7 +3,7 @@
 // ============================================================
 
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { X, Send, Bot, User, Star, Tv, Loader2, AlertCircle, ExternalLink, ChevronDown, ChevronUp, Clock } from 'lucide-react';
+import { X, Send, Bot, User, Star, Tv, Loader2, AlertCircle, ExternalLink, ChevronDown, ChevronUp, Clock, Plus, Trash2, Check } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
 import { batchSearchFilmweb, FilmwebData } from '../../api/filmwebApi';
 import { sendChatMessage, ChatMessage, ChatFilters } from '../../api/chatApi';
@@ -142,7 +142,7 @@ interface Props {
 // ── Komponent główny ──────────────────────────────────────
 
 export function AIChatModal({ onClose }: Props) {
-  const { programs, channels, setSelectedProgram } = useAppStore();
+  const { programs, channels, setSelectedProgram, chatSuggestions, setChatSuggestions } = useAppStore();
 
   // Zamroź wysokość przy montowaniu — klawiatura mobilna nie zmieni rozmiaru modalu
   // visualViewport.height daje dokładniejszy wynik na Android Chrome
@@ -302,24 +302,11 @@ export function AIChatModal({ onClose }: Props) {
 
           {/* Sugerowane zapytania — widoczne tylko gdy brak wiadomości użytkownika */}
           {messages.length === 1 && !loading && (
-            <div className="flex flex-col gap-2 pt-1">
-              <p className="text-[11px] text-gray-400 dark:text-gray-500 font-medium px-1">Spróbuj zapytać:</p>
-              {[
-                'Filmy akcji od 2015 z oceną powyżej 7',
-                'Co dobrego jest dziś wieczór?',
-                'Seriale kryminalne na ten tydzień',
-                'Najlepsze komedie z ostatnich lat',
-                'Filmy familijne na jutro',
-              ].map(suggestion => (
-                <button
-                  key={suggestion}
-                  onClick={() => { setInput(suggestion); inputRef.current?.focus(); }}
-                  className="text-left text-sm px-3.5 py-2.5 rounded-2xl rounded-tl-sm bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-gray-300 hover:bg-violet-50 dark:hover:bg-violet-900/20 hover:text-violet-700 dark:hover:text-violet-300 transition-colors border border-gray-200 dark:border-slate-700 hover:border-violet-300 dark:hover:border-violet-700"
-                >
-                  {suggestion}
-                </button>
-              ))}
-            </div>
+            <SuggestionsPanel
+              suggestions={chatSuggestions}
+              onSelect={(s) => { setInput(s); inputRef.current?.focus(); }}
+              onSave={setChatSuggestions}
+            />
           )}
 
           {/* Wskaźnik ładowania AI */}
@@ -597,6 +584,107 @@ function SearchResults({ results, onOpen }: {
           className="w-full py-2 text-xs font-semibold text-violet-600 dark:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-900/10 transition-colors border-t border-gray-200 dark:border-slate-700"
         >
           {showAll ? 'Pokaż mniej ↑' : `Pokaż wszystkie ${uniqueCount} tytuły ↓`}
+        </button>
+      )}
+    </div>
+  );
+}
+
+// ── Panel własnych podpowiedzi ────────────────────────────
+
+function SuggestionsPanel({ suggestions, onSelect, onSave }: {
+  suggestions: string[];
+  onSelect: (s: string) => void;
+  onSave: (s: string[]) => void;
+}) {
+  const [adding, setAdding] = useState(false);
+  const [draft, setDraft] = useState('');
+  const [editMode, setEditMode] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const handleAdd = () => {
+    const trimmed = draft.trim();
+    if (!trimmed) { setAdding(false); return; }
+    onSave([...suggestions, trimmed]);
+    setDraft('');
+    setAdding(false);
+  };
+
+  const handleDelete = (idx: number) => {
+    onSave(suggestions.filter((_, i) => i !== idx));
+  };
+
+  return (
+    <div className="flex flex-col gap-2 pt-1">
+      <div className="flex items-center justify-between px-1">
+        <p className="text-[11px] text-gray-400 dark:text-gray-500 font-medium">
+          {suggestions.length > 0 ? 'Twoje skróty:' : 'Dodaj własne skróty zapytań:'}
+        </p>
+        {suggestions.length > 0 && (
+          <button
+            onClick={() => setEditMode(e => !e)}
+            className={clsx(
+              'text-[11px] font-semibold px-2 py-0.5 rounded-full transition-colors',
+              editMode
+                ? 'text-red-500 bg-red-50 dark:bg-red-900/20'
+                : 'text-gray-400 hover:text-violet-600'
+            )}
+          >
+            {editMode ? 'Gotowe' : 'Edytuj'}
+          </button>
+        )}
+      </div>
+
+      {suggestions.map((s, idx) => (
+        <div key={idx} className="flex items-center gap-2">
+          <button
+            onClick={() => !editMode && onSelect(s)}
+            className={clsx(
+              'flex-1 text-left text-sm px-3.5 py-2.5 rounded-2xl rounded-tl-sm border transition-colors',
+              editMode
+                ? 'bg-gray-100 dark:bg-slate-800 text-gray-400 border-gray-200 dark:border-slate-700 cursor-default'
+                : 'bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-slate-700 hover:bg-violet-50 dark:hover:bg-violet-900/20 hover:text-violet-700 dark:hover:text-violet-300 hover:border-violet-300 dark:hover:border-violet-700'
+            )}
+          >
+            {s}
+          </button>
+          {editMode && (
+            <button
+              onClick={() => handleDelete(idx)}
+              className="w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30 text-red-500 hover:bg-red-200 transition-colors"
+            >
+              <Trash2 size={14} />
+            </button>
+          )}
+        </div>
+      ))}
+
+      {adding ? (
+        <div className="flex items-center gap-2">
+          <input
+            ref={inputRef}
+            autoFocus
+            value={draft}
+            onChange={e => setDraft(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') handleAdd(); if (e.key === 'Escape') { setAdding(false); setDraft(''); } }}
+            placeholder="Np. filmy SF od 2020..."
+            maxLength={80}
+            className="flex-1 text-sm px-3.5 py-2.5 rounded-2xl border-2 border-violet-500 bg-gray-50 dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 outline-none"
+          />
+          <button
+            onClick={handleAdd}
+            className="w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-full bg-violet-600 text-white hover:bg-violet-700 transition-colors"
+          >
+            <Check size={16} />
+          </button>
+        </div>
+      ) : (
+        <button
+          onClick={() => { setAdding(true); setEditMode(false); }}
+          className="flex items-center gap-2 px-3.5 py-2.5 rounded-2xl border-2 border-dashed border-gray-300 dark:border-slate-600 text-gray-400 dark:text-gray-500 hover:border-violet-400 hover:text-violet-500 transition-colors text-sm"
+        >
+          <Plus size={15} />
+          Dodaj skrót
         </button>
       )}
     </div>

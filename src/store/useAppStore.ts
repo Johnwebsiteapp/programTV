@@ -39,6 +39,7 @@ interface AppState {
 
   // ── DANE UŻYTKOWNIKA (persystowane) ──────────────────
   nickname: string;                // Pseudonim użytkownika
+  chatSuggestions: string[];       // Własne podpowiedzi w asystencie AI
   favorites: Favorite[];           // Ulubione programy
   notifications: Notification[];   // Zaplanowane powiadomienia
   categories: Category[];          // Niestandardowe kategorie
@@ -83,6 +84,9 @@ interface AppState {
   // Nickname
   setNickname: (name: string) => void;
 
+  // Chat suggestions
+  setChatSuggestions: (suggestions: string[]) => void;
+
   // Kategorie
   addCategory: (name: string, color: string, rules: Omit<CategoryRule, 'id'>[], logic: 'AND' | 'OR') => void;
   updateCategory: (id: string, updates: Partial<Pick<Category, 'name' | 'color' | 'rules' | 'ruleLogic'>>) => void;
@@ -124,6 +128,7 @@ export const useAppStore = create<AppState>()(
       showAIChat: false,
 
       nickname: '',
+      chatSuggestions: [],
       hasSeenWelcome: false,
       favorites: [],
       notifications: [],
@@ -179,6 +184,7 @@ export const useAppStore = create<AppState>()(
 
       setHasSeenWelcome: () => set({ hasSeenWelcome: true }),
       setNickname: (name) => set({ nickname: name.trim() }),
+      setChatSuggestions: (suggestions) => set({ chatSuggestions: suggestions }),
 
       setSelectedProgram: (program) => set({ selectedProgram: program }),
       setSelectedChannel: (channel) => set({ selectedChannel: channel }),
@@ -314,6 +320,7 @@ export const useAppStore = create<AppState>()(
         darkMode: state.darkMode,
         filters: state.filters,
         nickname: state.nickname,
+        chatSuggestions: state.chatSuggestions,
         hasSeenWelcome: state.hasSeenWelcome,
       }),
       // Odtwarzanie dat po deserializacji z JSON
