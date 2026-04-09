@@ -3,7 +3,7 @@
 // ============================================================
 
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
-import { X, Sparkles, Search, Star, Calendar, Globe, Tag, Tv, ExternalLink, ChevronLeft, ChevronRight, ChevronDown, Heart, Info } from 'lucide-react';
+import { X, Sparkles, Search, Star, Calendar, Tag, Tv, ChevronLeft, ChevronRight, Heart } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
 import { batchSearchFilmweb, FilmwebData } from '../../api/filmwebApi';
 import { Program, Channel } from '../../types';
@@ -741,13 +741,14 @@ function Chip({ label, active, onClick, activeClass, inactiveClass }: {
 }
 
 function ResultCard({ item, isFavorite, onAddFavorite, onOpenProgram }: { item: FilteredProgram; isFavorite: boolean; onAddFavorite: () => void; onOpenProgram: (p: Program) => void }) {
-  const [expanded, setExpanded] = useState(false);
   const { program, channel, filmweb } = item;
 
   return (
-    <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-slate-700 shadow-sm hover:shadow-md transition-all overflow-hidden">
-      {/* Główna karta */}
-      <div className="flex gap-3 p-3 cursor-pointer" onClick={() => setExpanded(e => !e)}>
+    <div
+      className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-slate-700 shadow-sm active:shadow-none transition-all overflow-hidden cursor-pointer"
+      onClick={() => onOpenProgram(program)}
+    >
+      <div className="flex gap-3 p-3">
         <div className="w-11 h-14 rounded-xl bg-gray-50 dark:bg-slate-700 flex items-center justify-center text-2xl flex-shrink-0 border border-gray-100 dark:border-slate-600">
           {channel.logoEmoji ?? '📺'}
         </div>
@@ -778,69 +779,19 @@ function ResultCard({ item, isFavorite, onAddFavorite, onOpenProgram }: { item: 
           </div>
         </div>
 
-        <div className="flex-shrink-0 flex flex-col items-center gap-1.5 self-start mt-0.5">
-          {/* Szczegóły */}
-          <button
-            onClick={e => { e.stopPropagation(); onOpenProgram(program); }}
-            className="p-1 rounded-lg text-gray-300 hover:text-primary-500 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors"
-          >
-            <Info size={15} />
-          </button>
-          {/* Ulubione */}
-          <button
-            onClick={e => { e.stopPropagation(); if (!isFavorite) onAddFavorite(); }}
-            className={clsx(
-              'p-1 rounded-lg transition-colors',
-              isFavorite
-                ? 'text-red-500'
-                : 'text-gray-300 hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20'
-            )}
-          >
-            <Heart size={15} className={clsx(isFavorite && 'fill-red-500')} />
-          </button>
-          <ChevronDown size={15} className={clsx('text-gray-300 transition-transform', expanded && 'rotate-180')} />
-        </div>
+        {/* Ulubione — szybka akcja bez otwierania modala */}
+        <button
+          onClick={e => { e.stopPropagation(); if (!isFavorite) onAddFavorite(); }}
+          className={clsx(
+            'flex-shrink-0 self-center p-2 rounded-xl transition-colors',
+            isFavorite
+              ? 'text-red-500'
+              : 'text-gray-300 hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20'
+          )}
+        >
+          <Heart size={17} className={clsx(isFavorite && 'fill-red-500')} />
+        </button>
       </div>
-
-      {/* Rozwinięte szczegóły */}
-      {expanded && (
-        <div className="px-3 pb-3 border-t border-gray-100 dark:border-slate-700">
-          <div className="pt-3 flex flex-col gap-2">
-            {filmweb?.countries && filmweb.countries.length > 0 && (
-              <div className="flex items-start gap-1.5">
-                <Globe size={12} className="text-gray-400 mt-0.5 flex-shrink-0" />
-                <span className="text-xs text-gray-500 dark:text-gray-400">{filmweb.countries.join(', ')}</span>
-              </div>
-            )}
-            {filmweb?.genres && filmweb.genres.length > 0 && (
-              <div className="flex flex-wrap gap-1">
-                {filmweb.genres.map(g => (
-                  <span key={g} className="text-[10px] px-1.5 py-0.5 bg-gray-100 dark:bg-slate-700 rounded-full text-gray-500 dark:text-gray-400 capitalize">{g}</span>
-                ))}
-              </div>
-            )}
-            {(filmweb?.synopsis || program.description) && (
-              <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed line-clamp-4">
-                {filmweb?.synopsis || program.description}
-              </p>
-            )}
-            <button
-              onClick={e => { e.stopPropagation(); onOpenProgram(program); }}
-              className="w-full flex items-center justify-center gap-1.5 py-2 rounded-xl bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-400 text-xs font-bold hover:bg-primary-100 dark:hover:bg-primary-900/30 transition-colors mt-1"
-            >
-              <Info size={13} /> Szczegóły · Dodaj do ulubionych · Ustaw przypomnienie
-            </button>
-            {filmweb?.id && (
-              <a href={`https://www.filmweb.pl/${filmweb.type?.toLowerCase().includes('serial') ? 'serial' : 'film'}/${filmweb.title.replace(/ /g, '+')}-${filmweb.year}-${filmweb.id}`} target="_blank" rel="noopener noreferrer"
-                onClick={e => e.stopPropagation()}
-                className="flex items-center gap-1.5 text-xs text-primary-600 font-semibold hover:underline w-fit"
-              >
-                <ExternalLink size={12} /> Otwórz na Filmweb
-              </a>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   );
 }
