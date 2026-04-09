@@ -508,9 +508,9 @@ function SearchResults({ results, onOpen }: {
                         target="_blank"
                         rel="noopener noreferrer"
                         onClick={e => e.stopPropagation()}
-                        className="text-[10px] text-gray-400 hover:text-violet-600 flex items-center gap-0.5"
+                        className="ml-auto flex items-center gap-1 px-2.5 py-1 rounded-full bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 border border-orange-200 dark:border-orange-700 text-xs font-bold hover:bg-orange-100 dark:hover:bg-orange-900/40 transition-colors"
                       >
-                        <ExternalLink size={9} /> Filmweb
+                        <ExternalLink size={11} /> Filmweb
                       </a>
                     </div>
                   )}
