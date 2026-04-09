@@ -3,7 +3,7 @@
 // ============================================================
 
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
-import { X, Sparkles, Search, Star, Calendar, Tag, Tv, ChevronLeft, ChevronRight, Heart } from 'lucide-react';
+import { X, Sparkles, Search, Star, Calendar, Tag, Tv, Globe, ChevronLeft, ChevronRight, Heart } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
 import { batchSearchFilmweb, FilmwebData } from '../../api/filmwebApi';
 import { Program, Channel } from '../../types';

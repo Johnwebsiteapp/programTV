@@ -593,6 +593,7 @@ Odpowiadaj wyłącznie po polsku. Bądź krótki i bezpośredni.`;
 
 app.post('/api/ai-chat', async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Cache-Control', 'no-store');
 
   const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) {

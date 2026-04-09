@@ -3,8 +3,8 @@
   "configurations": [
     {
       "name": "tv-guide",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev"],
+      "runtimeExecutable": "/tmp/node-v22.14.0-darwin-x64/bin/node",
+      "runtimeArgs": ["node_modules/.bin/vite", "--host", "0.0.0.0"],
       "port": 5173
     }
   ]
