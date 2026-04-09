@@ -27,7 +27,7 @@ export function BottomNavigation() {
   ];
 
   return (
-    <nav className="bg-white dark:bg-slate-900 border-t border-gray-100 dark:border-slate-800 safe-area-bottom">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-slate-900 border-t border-gray-100 dark:border-slate-800 safe-area-bottom">
       <div className="flex justify-around items-center h-16 px-2">
         {items.map(item => {
           const isActive = activeView === item.view;

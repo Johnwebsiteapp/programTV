@@ -43,7 +43,7 @@ export default function App() {
   }, []); // Tylko przy pierwszym renderze
 
   return (
-    <div className="flex flex-col h-screen bg-gray-50 dark:bg-slate-950 overflow-hidden">
+    <div className="flex flex-col h-screen bg-gray-50 dark:bg-slate-950 overflow-hidden pb-16 md:pb-0">
       {/* Nagłówek */}
       <Header />
 
