@@ -76,6 +76,10 @@ interface AppState {
   markNotificationFired: (notificationId: string) => void;
   hasNotification: (programId: string) => boolean;
 
+  // Onboarding
+  hasSeenWelcome: boolean;
+  setHasSeenWelcome: () => void;
+
   // Nickname
   setNickname: (name: string) => void;
 
@@ -120,6 +124,7 @@ export const useAppStore = create<AppState>()(
       showAIChat: false,
 
       nickname: '',
+      hasSeenWelcome: false,
       favorites: [],
       notifications: [],
       categories: [],
@@ -172,6 +177,7 @@ export const useAppStore = create<AppState>()(
           return { darkMode: newMode };
         }),
 
+      setHasSeenWelcome: () => set({ hasSeenWelcome: true }),
       setNickname: (name) => set({ nickname: name.trim() }),
 
       setSelectedProgram: (program) => set({ selectedProgram: program }),

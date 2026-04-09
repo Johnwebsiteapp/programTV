@@ -19,10 +19,11 @@ import { SmartFilterModal } from './components/smartfilter/SmartFilterModal';
 import { AIChatModal } from './components/chat/AIChatModal';
 import { HomeView } from './components/home/HomeView';
 import { ProfileView } from './components/profile/ProfileView';
+import { WelcomeModal } from './components/onboarding/WelcomeModal';
 import { rescheduleAllNotifications } from './utils/notificationUtils';
 
 export default function App() {
-  const { activeView, darkMode, loadPrograms, notifications, markNotificationFired, showSmartFilter, setShowSmartFilter, showAIChat, setShowAIChat } = useAppStore();
+  const { activeView, darkMode, loadPrograms, notifications, markNotificationFired, showSmartFilter, setShowSmartFilter, showAIChat, setShowAIChat, hasSeenWelcome } = useAppStore();
 
   // Ustaw tryb ciemny przy starcie
   useEffect(() => {
@@ -110,6 +111,9 @@ export default function App() {
       {/* Smart Filter i AI Chat — renderowane po BottomNavigation żeby nie były zablokowane przez transform */}
       {showSmartFilter && <SmartFilterModal onClose={() => setShowSmartFilter(false)} />}
       {showAIChat && <AIChatModal onClose={() => setShowAIChat(false)} />}
+
+      {/* Onboarding — tylko przy pierwszym uruchomieniu */}
+      {!hasSeenWelcome && <WelcomeModal />}
     </div>
   );
 }
