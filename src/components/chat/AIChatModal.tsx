@@ -535,9 +535,10 @@ function SearchResults({ results, onOpen }: {
                           target="_blank"
                           rel="noopener noreferrer"
                           onClick={e => e.stopPropagation()}
-                          className="ml-auto flex items-center gap-1 px-2.5 py-1 rounded-full bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 border border-orange-200 dark:border-orange-700 text-xs font-bold hover:bg-orange-100 dark:hover:bg-orange-900/40 transition-colors"
+                          className="ml-auto flex-shrink-0 flex flex-col items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br from-[#FFCD05] to-[#D89124] shadow-sm hover:shadow-md active:scale-95 transition-all"
                         >
-                          <ExternalLink size={11} /> Filmweb
+                          <img src="/filmweb-logo.svg" alt="Filmweb" className="w-7 h-7" />
+                          <span className="text-[9px] font-black text-white mt-0.5 tracking-wide">FILMWEB</span>
                         </a>
                       </>
                     ) : imdbUrls[title] ? (
@@ -546,9 +547,10 @@ function SearchResults({ results, onOpen }: {
                         target="_blank"
                         rel="noopener noreferrer"
                         onClick={e => e.stopPropagation()}
-                        className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-yellow-50 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-400 border border-yellow-200 dark:border-yellow-700 text-xs font-bold hover:bg-yellow-100 dark:hover:bg-yellow-900/40 transition-colors"
+                        className="ml-auto flex-shrink-0 flex flex-col items-center justify-center w-14 h-14 rounded-2xl bg-[#F5C518] shadow-sm hover:shadow-md active:scale-95 transition-all"
                       >
-                        <ExternalLink size={11} /> IMDb
+                        <span className="text-[15px] font-black text-black leading-none">IMDb</span>
+                        <span className="text-[8px] font-bold text-black/60 mt-0.5">otwórz</span>
                       </a>
                     ) : null}
                   </div>
