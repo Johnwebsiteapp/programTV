@@ -313,6 +313,8 @@ export const useAppStore = create<AppState>()(
         categories: state.categories,
         darkMode: state.darkMode,
         filters: state.filters,
+        nickname: state.nickname,
+        hasSeenWelcome: state.hasSeenWelcome,
       }),
       // Odtwarzanie dat po deserializacji z JSON
       onRehydrateStorage: () => (state) => {
