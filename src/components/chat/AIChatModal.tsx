@@ -537,8 +537,8 @@ function SearchResults({ results, onOpen }: {
                           onClick={e => e.stopPropagation()}
                           className="ml-auto flex-shrink-0 flex flex-col items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br from-[#FFCD05] to-[#D89124] shadow-sm hover:shadow-md active:scale-95 transition-all"
                         >
-                          <img src="/filmweb-logo.svg" alt="Filmweb" className="w-7 h-7" />
-                          <span className="text-[9px] font-black text-white mt-0.5 tracking-wide">FILMWEB</span>
+                          <img src="/filmweb-logo.svg" alt="" className="w-8 h-8 drop-shadow-sm" />
+                          <span className="text-[8px] font-black text-[#7A4800] tracking-wide leading-none">FILMWEB</span>
                         </a>
                       </>
                     ) : imdbUrls[title] ? (
