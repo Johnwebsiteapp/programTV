@@ -547,6 +547,48 @@ app.post('/api/filmweb/batch', async (req, res) => {
   res.json({ results });
 });
 
+// ─── IMDB SEARCH ─────────────────────────────────────────
+// Używa publicznego endpointu sugestii IMDb (bez klucza API)
+const imdbCache = new Map();
+const IMDB_CACHE_TTL = 24 * 60 * 60 * 1000;
+
+app.get('/api/imdb/search', async (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  const title = (req.query.title || '').trim();
+  if (!title) return res.json({ imdbUrl: null });
+
+  const key = title.toLowerCase();
+  const cached = imdbCache.get(key);
+  if (cached && Date.now() - cached.fetchedAt < IMDB_CACHE_TTL) {
+    return res.json({ imdbUrl: cached.data });
+  }
+
+  try {
+    const encoded = encodeURIComponent(title.slice(0, 30));
+    const resp = await fetch(
+      `https://v3.sg.media-imdb.com/suggestion/x/${encoded}.json`,
+      {
+        headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'application/json' },
+        timeout: 6000,
+      }
+    );
+    if (!resp.ok) {
+      imdbCache.set(key, { data: null, fetchedAt: Date.now() });
+      return res.json({ imdbUrl: null });
+    }
+    const json = await resp.json();
+    // Znajdź pierwszy wynik który jest filmem lub serialem (id zaczyna się od "tt")
+    const hit = (json.d ?? []).find(d => d.id?.startsWith('tt') && (d.qid === 'movie' || d.qid === 'tvSeries' || d.qid === 'tvMiniSeries'));
+    const imdbUrl = hit ? `https://www.imdb.com/title/${hit.id}/` : null;
+    imdbCache.set(key, { data: imdbUrl, fetchedAt: Date.now() });
+    res.json({ imdbUrl });
+  } catch (err) {
+    console.warn(`[IMDb] Błąd dla "${title}":`, err.message);
+    imdbCache.set(key, { data: null, fetchedAt: Date.now() });
+    res.json({ imdbUrl: null });
+  }
+});
+
 // ─── AI CHAT ─────────────────────────────────────────────
 
 const AI_SYSTEM_PROMPT = `Jesteś asystentem TV Stream — aplikacji do przeglądania programu telewizyjnego w Polsce.

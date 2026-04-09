@@ -430,6 +430,7 @@ function SearchResults({ results, onOpen }: {
 }) {
   const [expandedTitles, setExpandedTitles] = useState<Set<string>>(new Set());
   const [showAll, setShowAll] = useState(false);
+  const [imdbUrls, setImdbUrls] = useState<Record<string, string>>({});
   const MAX_PREVIEW = 5;
 
   if (results.length === 0) {
@@ -440,6 +441,31 @@ function SearchResults({ results, onOpen }: {
       </div>
     );
   }
+
+  // Dla tytułów bez Filmweb — sprawdź IMDb
+  useEffect(() => {
+    const titlesWithoutFilmweb = [...new Set(
+      results.filter(r => r.filmweb === null).map(r => r.program.title)
+    )];
+    if (titlesWithoutFilmweb.length === 0) return;
+    let cancelled = false;
+    Promise.all(
+      titlesWithoutFilmweb.map(async (title) => {
+        try {
+          const res = await fetch(`/api/imdb/search?title=${encodeURIComponent(title)}`);
+          const json = await res.json();
+          if (json.imdbUrl) return [title, json.imdbUrl] as [string, string];
+        } catch {}
+        return null;
+      })
+    ).then(entries => {
+      if (cancelled) return;
+      const found: Record<string, string> = {};
+      for (const e of entries) { if (e) found[e[0]] = e[1]; }
+      if (Object.keys(found).length > 0) setImdbUrls(prev => ({ ...prev, ...found }));
+    });
+    return () => { cancelled = true; };
+  }, [results]);
 
   // Grupuj po tytule
   const groups = (() => {
@@ -514,9 +540,9 @@ function SearchResults({ results, onOpen }: {
                           <ExternalLink size={11} /> Filmweb
                         </a>
                       </>
-                    ) : (
+                    ) : imdbUrls[title] ? (
                       <a
-                        href={`https://www.imdb.com/find/?q=${encodeURIComponent(title)}`}
+                        href={imdbUrls[title]}
                         target="_blank"
                         rel="noopener noreferrer"
                         onClick={e => e.stopPropagation()}
@@ -524,7 +550,7 @@ function SearchResults({ results, onOpen }: {
                       >
                         <ExternalLink size={11} /> IMDb
                       </a>
-                    )}
+                    ) : null}
                   </div>
                   {/* Liczba emisji */}
                   <div className="flex items-center gap-1 mt-1">
