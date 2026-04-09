@@ -3,7 +3,7 @@
 // ============================================================
 
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { X, Send, Bot, User, Star, Tv, Loader2, AlertCircle, ExternalLink } from 'lucide-react';
+import { X, Send, Bot, User, Star, Tv, Loader2, AlertCircle, ExternalLink, ChevronDown, ChevronUp, Clock } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
 import { batchSearchFilmweb, FilmwebData } from '../../api/filmwebApi';
 import { sendChatMessage, ChatMessage, ChatFilters } from '../../api/chatApi';
@@ -428,9 +428,9 @@ function SearchResults({ results, onOpen }: {
   results: SearchResult[];
   onOpen: (p: Program) => void;
 }) {
-  const [expanded, setExpanded] = useState(false);
+  const [expandedTitles, setExpandedTitles] = useState<Set<string>>(new Set());
+  const [showAll, setShowAll] = useState(false);
   const MAX_PREVIEW = 5;
-  const shown = expanded ? results : results.slice(0, MAX_PREVIEW);
 
   if (results.length === 0) {
     return (
@@ -441,78 +441,122 @@ function SearchResults({ results, onOpen }: {
     );
   }
 
+  // Grupuj po tytule
+  const groups = (() => {
+    const map = new Map<string, SearchResult[]>();
+    for (const r of results) {
+      const key = r.program.title;
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(r);
+    }
+    return [...map.entries()].map(([title, items]) => ({ title, items }));
+  })();
+
+  const shownGroups = showAll ? groups : groups.slice(0, MAX_PREVIEW);
+  const uniqueCount = groups.length;
+
+  const toggleTitle = (title: string) => {
+    setExpandedTitles(prev => {
+      const next = new Set(prev);
+      next.has(title) ? next.delete(title) : next.add(title);
+      return next;
+    });
+  };
+
   return (
     <div className="w-full bg-gray-50 dark:bg-slate-800/60 rounded-2xl rounded-tl-sm overflow-hidden border border-gray-200 dark:border-slate-700">
       {/* Nagłówek */}
       <div className="px-3.5 py-2 bg-violet-600 flex items-center gap-2">
         <Tv size={13} className="text-white/80" />
         <span className="text-xs font-bold text-white">
-          {results.length === 1 ? '1 wynik' : `${results.length} wyniki/ów`}
+          {uniqueCount === 1 ? '1 tytuł' : `${uniqueCount} tytułów`}
+          {results.length !== uniqueCount && (
+            <span className="font-normal opacity-80"> · {results.length} emisji</span>
+          )}
         </span>
       </div>
 
-      {/* Lista */}
+      {/* Lista zgrupowana */}
       <div className="divide-y divide-gray-100 dark:divide-slate-700">
-        {shown.map(({ program, channel, filmweb, dayLabel }) => (
-          <button
-            key={program.id}
-            onClick={() => onOpen(program)}
-            className="w-full text-left px-3.5 py-2.5 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors flex items-start gap-2.5"
-          >
-            {/* Emoji kanału */}
-            <span className="text-lg flex-shrink-0 mt-0.5">{channel.logoEmoji}</span>
-            <div className="flex-1 min-w-0">
-              {/* Tytuł */}
-              <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">
-                {program.title}
-              </p>
-              {/* Meta */}
-              <div className="flex items-center gap-2 flex-wrap mt-0.5">
-                <span className="text-[11px] text-violet-600 dark:text-violet-400 font-medium">{dayLabel}</span>
-                <span className="text-[11px] text-gray-500 dark:text-gray-400">{formatTime(program.startTime)}</span>
-                <span className="text-[11px] text-gray-400">{channel.name}</span>
-              </div>
-              {/* Filmweb info */}
-              {filmweb && (
-                <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                  {filmweb.rate != null && (
-                    <span className="flex items-center gap-0.5 text-[11px] font-bold text-amber-500">
-                      <Star size={9} className="fill-amber-400 text-amber-400" />
-                      {filmweb.rate.toFixed(1)}
-                    </span>
+        {shownGroups.map(({ title, items }) => {
+          const { filmweb, channel } = items[0];
+          const isExpanded = expandedTitles.has(title);
+          return (
+            <div key={title}>
+              {/* Karta tytułu */}
+              <button
+                onClick={() => toggleTitle(title)}
+                className="w-full text-left px-3.5 py-2.5 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors flex items-start gap-2.5"
+              >
+                <span className="text-lg flex-shrink-0 mt-0.5">{channel.logoEmoji}</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">{title}</p>
+                  {filmweb && (
+                    <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                      {filmweb.rate != null && (
+                        <span className="flex items-center gap-0.5 text-[11px] font-bold text-amber-500">
+                          <Star size={9} className="fill-amber-400 text-amber-400" />
+                          {filmweb.rate.toFixed(1)}
+                        </span>
+                      )}
+                      {filmweb.year && <span className="text-[11px] text-gray-400">{filmweb.year}</span>}
+                      {filmweb.genres.slice(0, 2).map(g => (
+                        <span key={g} className="text-[10px] px-1.5 py-0.5 bg-violet-50 dark:bg-violet-900/20 text-violet-700 dark:text-violet-300 rounded-full capitalize">{g}</span>
+                      ))}
+                      <a
+                        href={filmwebLink(filmweb)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={e => e.stopPropagation()}
+                        className="text-[10px] text-gray-400 hover:text-violet-600 flex items-center gap-0.5"
+                      >
+                        <ExternalLink size={9} /> Filmweb
+                      </a>
+                    </div>
                   )}
-                  {filmweb.year && (
-                    <span className="text-[11px] text-gray-400">{filmweb.year}</span>
-                  )}
-                  {filmweb.genres.slice(0, 2).map(g => (
-                    <span key={g} className="text-[10px] px-1.5 py-0.5 bg-violet-50 dark:bg-violet-900/20 text-violet-700 dark:text-violet-300 rounded-full capitalize">
-                      {g}
+                  {/* Liczba emisji */}
+                  <div className="flex items-center gap-1 mt-1">
+                    <Clock size={10} className="text-violet-500" />
+                    <span className="text-[11px] text-violet-600 dark:text-violet-400 font-medium">
+                      {items.length === 1 ? '1 emisja' : `${items.length} emisje/i`}
                     </span>
+                  </div>
+                </div>
+                {isExpanded
+                  ? <ChevronUp size={15} className="text-gray-400 flex-shrink-0 mt-1" />
+                  : <ChevronDown size={15} className="text-gray-400 flex-shrink-0 mt-1" />
+                }
+              </button>
+
+              {/* Rozwinięte emisje */}
+              {isExpanded && (
+                <div className="bg-gray-100/60 dark:bg-slate-700/40 divide-y divide-gray-200 dark:divide-slate-600">
+                  {items.map(({ program, channel: ch, dayLabel }) => (
+                    <button
+                      key={program.id}
+                      onClick={() => onOpen(program)}
+                      className="w-full text-left px-5 py-2 hover:bg-violet-50 dark:hover:bg-violet-900/20 transition-colors flex items-center gap-2.5"
+                    >
+                      <span className="text-base flex-shrink-0">{ch.logoEmoji}</span>
+                      <span className="text-[11px] font-bold text-violet-600 dark:text-violet-400 w-10 flex-shrink-0">{dayLabel}</span>
+                      <span className="text-[11px] font-semibold text-gray-700 dark:text-gray-300">{formatTime(program.startTime)}</span>
+                      <span className="text-[11px] text-gray-400 truncate">{ch.name}</span>
+                    </button>
                   ))}
-                  <a
-                    href={filmwebLink(filmweb)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={e => e.stopPropagation()}
-                    className="ml-auto text-[10px] text-gray-400 hover:text-violet-600 dark:hover:text-violet-400 flex items-center gap-0.5 transition-colors"
-                  >
-                    <ExternalLink size={9} />
-                    Filmweb
-                  </a>
                 </div>
               )}
             </div>
-          </button>
-        ))}
+          );
+        })}
       </div>
 
-      {/* Pokaż więcej */}
-      {results.length > MAX_PREVIEW && (
+      {/* Pokaż więcej tytułów */}
+      {groups.length > MAX_PREVIEW && (
         <button
-          onClick={() => setExpanded(e => !e)}
+          onClick={() => setShowAll(e => !e)}
           className="w-full py-2 text-xs font-semibold text-violet-600 dark:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-900/10 transition-colors border-t border-gray-200 dark:border-slate-700"
         >
-          {expanded ? 'Pokaż mniej ↑' : `Pokaż wszystkie ${results.length} wyniki/ów ↓`}
+          {showAll ? 'Pokaż mniej ↑' : `Pokaż wszystkie ${uniqueCount} tytuły ↓`}
         </button>
       )}
     </div>
