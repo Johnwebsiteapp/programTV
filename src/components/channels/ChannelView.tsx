@@ -89,7 +89,7 @@ export function ChannelView() {
       {/* Overlay */}
       <div
         className={clsx(
-          'fixed inset-0 bg-black/40 z-40 modal-backdrop',
+          'fixed inset-0 bg-black/40 z-[65] modal-backdrop',
           visible ? 'modal-visible' : 'modal-hidden'
         )}
         onClick={() => setSelectedChannel(null)}
@@ -97,7 +97,7 @@ export function ChannelView() {
 
       {/* Panel — wysuwa się z prawej */}
       <div className={clsx(
-        'fixed inset-y-0 right-0 w-full max-w-md bg-white dark:bg-slate-900 z-50 flex flex-col shadow-2xl panel-slide',
+        'fixed inset-y-0 right-0 w-full max-w-md bg-white dark:bg-slate-900 z-[66] flex flex-col shadow-2xl panel-slide',
         visible ? 'panel-visible' : 'panel-hidden'
       )}>
 
