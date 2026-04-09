@@ -519,11 +519,29 @@ export function SmartFilterModal({ onClose }: Props) {
       }
     };
 
+    // Buduj komunikat podsumowujący kryteria
+    const buildSummary = (): string => {
+      const parts: string[] = [];
+      const typePart = criteria.types.length === 2 ? 'filmów i seriali'
+        : criteria.types.includes('film') ? 'filmów' : 'seriali';
+      if (criteria.minRating > 0) parts.push(`z oceną ${criteria.minRating.toFixed(1)}★ i wyżej`);
+      if (criteria.minYear > 1980) parts.push(`od ${criteria.minYear} roku`);
+      if (criteria.selectedDays?.length) parts.push(`w: ${criteria.selectedDays.join(', ')}`);
+      const n = results.length;
+      const countWord = n === 0 ? 'Nie znalazłem żadnych'
+        : n === 1 ? 'Znalazłem 1'
+        : n < 5 ? `Znalazłem ${n}`
+        : `Znalazłem ${n}`;
+      return parts.length > 0
+        ? `${countWord} ${typePart} ${parts.join(', ')}`
+        : `${countWord} ${typePart}`;
+    };
+
     return (
       <div className="flex-1 flex flex-col min-h-0">
         {/* Nagłówek */}
         <div className="flex-shrink-0 px-4 py-2.5 bg-primary-50 dark:bg-primary-900/20 border-b border-primary-100 dark:border-primary-800">
-          <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center justify-between mb-1">
             <div className="flex items-center gap-2">
               <Sparkles size={15} className="text-primary-600" />
               <span className="font-bold text-primary-700 dark:text-primary-400 text-sm">
@@ -534,6 +552,9 @@ export function SmartFilterModal({ onClose }: Props) {
               Zmień filtry
             </button>
           </div>
+          <p className="text-xs text-primary-600/80 dark:text-primary-400/80 mb-1.5 font-medium">
+            {buildSummary()}
+          </p>
 
           {/* Zakładki dni */}
           {daysInResults.length > 1 && (
