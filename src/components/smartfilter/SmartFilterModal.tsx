@@ -3,7 +3,7 @@
 // ============================================================
 
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
-import { X, Sparkles, Search, Star, Calendar, Globe, Tag, Tv, ExternalLink, ChevronLeft, ChevronRight, ChevronDown, Heart } from 'lucide-react';
+import { X, Sparkles, Search, Star, Calendar, Globe, Tag, Tv, ExternalLink, ChevronLeft, ChevronRight, ChevronDown, Heart, Info } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
 import { batchSearchFilmweb, FilmwebData } from '../../api/filmwebApi';
 import { Program, Channel } from '../../types';
@@ -104,7 +104,7 @@ interface Props {
 }
 
 export function SmartFilterModal({ onClose }: Props) {
-  const { programs, channels, addFavorite, isFavoriteProgram } = useAppStore();
+  const { programs, channels, addFavorite, isFavoriteProgram, setSelectedProgram } = useAppStore();
 
   // Animacja wejścia/wyjścia
   const [visible, setVisible] = useState(false);
@@ -624,6 +624,7 @@ export function SmartFilterModal({ onClose }: Props) {
                         item={item}
                         isFavorite={isFavoriteProgram(item.program.id)}
                         onAddFavorite={() => addFavorite(item.program)}
+                        onOpenProgram={setSelectedProgram}
                       />
                     ))}
                   </div>
@@ -718,7 +719,7 @@ function Chip({ label, active, onClick, activeClass, inactiveClass }: {
   );
 }
 
-function ResultCard({ item, isFavorite, onAddFavorite }: { item: FilteredProgram; isFavorite: boolean; onAddFavorite: () => void }) {
+function ResultCard({ item, isFavorite, onAddFavorite, onOpenProgram }: { item: FilteredProgram; isFavorite: boolean; onAddFavorite: () => void; onOpenProgram: (p: Program) => void }) {
   const [expanded, setExpanded] = useState(false);
   const { program, channel, filmweb } = item;
 
@@ -757,6 +758,13 @@ function ResultCard({ item, isFavorite, onAddFavorite }: { item: FilteredProgram
         </div>
 
         <div className="flex-shrink-0 flex flex-col items-center gap-1.5 self-start mt-0.5">
+          {/* Szczegóły */}
+          <button
+            onClick={e => { e.stopPropagation(); onOpenProgram(program); }}
+            className="p-1 rounded-lg text-gray-300 hover:text-primary-500 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors"
+          >
+            <Info size={15} />
+          </button>
           {/* Ulubione */}
           <button
             onClick={e => { e.stopPropagation(); if (!isFavorite) onAddFavorite(); }}
@@ -795,10 +803,16 @@ function ResultCard({ item, isFavorite, onAddFavorite }: { item: FilteredProgram
                 {filmweb?.synopsis || program.description}
               </p>
             )}
+            <button
+              onClick={e => { e.stopPropagation(); onOpenProgram(program); }}
+              className="w-full flex items-center justify-center gap-1.5 py-2 rounded-xl bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-400 text-xs font-bold hover:bg-primary-100 dark:hover:bg-primary-900/30 transition-colors mt-1"
+            >
+              <Info size={13} /> Szczegóły · Dodaj do ulubionych · Ustaw przypomnienie
+            </button>
             {filmweb?.id && (
               <a href={`https://www.filmweb.pl/${filmweb.type?.toLowerCase().includes('serial') ? 'serial' : 'film'}/${filmweb.title.replace(/ /g, '+')}-${filmweb.year}-${filmweb.id}`} target="_blank" rel="noopener noreferrer"
                 onClick={e => e.stopPropagation()}
-                className="flex items-center gap-1.5 text-xs text-primary-600 font-semibold hover:underline w-fit mt-0.5"
+                className="flex items-center gap-1.5 text-xs text-primary-600 font-semibold hover:underline w-fit"
               >
                 <ExternalLink size={12} /> Otwórz na Filmweb
               </a>
