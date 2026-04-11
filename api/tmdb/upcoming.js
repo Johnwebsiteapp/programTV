@@ -13,7 +13,7 @@ const LANG = 'pl-PL';
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Cache-Control', 'public, s-maxage=21600, stale-while-revalidate=3600');
+  res.setHeader('Cache-Control', 'no-store');
 
   if (cache && Date.now() - cacheTime < CACHE_TTL) {
     return res.json({ films: cache });
@@ -68,9 +68,9 @@ export default async function handler(req, res) {
 
     cache = films;
     cacheTime = Date.now();
-    res.json({ films });
+    res.json({ films, _debug: { r1: r1.status, r2: r2.status, r3: r3.status, total: films.length } });
   } catch (err) {
     console.error('[tmdb/upcoming]', err.message);
-    res.status(502).json({ films: [] });
+    res.status(502).json({ films: [], _error: err.message });
   }
 }
