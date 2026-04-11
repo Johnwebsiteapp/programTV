@@ -282,13 +282,14 @@ function formatReleaseDate(dateStr: string | null): { label: string; color: stri
   const now = new Date();
   const rel = new Date(dateStr);
   const diffDays = Math.round((rel.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-  const formatted = rel.toLocaleDateString('pl-PL', { day: 'numeric', month: 'short', year: 'numeric' });
+  const formatted = rel.toLocaleDateString('pl-PL', { day: 'numeric', month: 'long' });
 
-  if (diffDays < 0) return { label: formatted, color: 'bg-gray-500' };
-  if (diffDays <= 14) return { label: `Za ${diffDays} dni`, color: 'bg-green-600' };
-  if (diffDays <= 60) return { label: formatted, color: 'bg-blue-600' };
-  if (diffDays <= 180) return { label: formatted, color: 'bg-violet-600' };
-  return { label: formatted, color: 'bg-purple-800' };
+  if (diffDays < 0) return { label: `Premiera ${formatted}`, color: 'bg-gray-500' };
+  if (diffDays === 0) return { label: 'Premiera dziś!', color: 'bg-green-600' };
+  if (diffDays <= 14) return { label: `Za ${diffDays} dni · ${formatted}`, color: 'bg-green-600' };
+  if (diffDays <= 60) return { label: `Premiera ${formatted}`, color: 'bg-blue-600' };
+  if (diffDays <= 180) return { label: `Premiera ${formatted}`, color: 'bg-violet-600' };
+  return { label: `Premiera ${formatted}`, color: 'bg-purple-800' };
 }
 
 // ── Karta zapowiedzi ──────────────────────────────────────
