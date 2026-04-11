@@ -33,6 +33,7 @@ export interface TmdbMovie {
   countries: string[];
   poster: string | null;
   filmwebUrl: string;
+  popularity?: number;
 }
 
 export async function getUpcomingMovies(): Promise<TmdbMovie[]> {
