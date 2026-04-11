@@ -5,7 +5,7 @@
 import { useMemo, useState, useEffect } from 'react';
 import { Bell, ChevronRight, Sparkles, Film, Star, X, Globe, Tag, Calendar, Bot } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
-import { getCinemaMovies, FilmwebData } from '../../api/filmwebApi';
+import { getCinemaMovies, FilmwebData, getUpcomingMovies, TmdbMovie } from '../../api/filmwebApi';
 import clsx from 'clsx';
 
 // Mapowanie gatunków na emoji/kolory kategorii
@@ -38,12 +38,27 @@ export function HomeView() {
   const [cinemaLoading, setCinemaLoading] = useState(true);
   const [selectedCinemaFilm, setSelectedCinemaFilm] = useState<FilmwebData | null>(null);
 
+  const [upcomingMovies, setUpcomingMovies] = useState<TmdbMovie[]>([]);
+  const [upcomingLoading, setUpcomingLoading] = useState(true);
+  const [selectedUpcoming, setSelectedUpcoming] = useState<TmdbMovie | null>(null);
+
   useEffect(() => {
     let cancelled = false;
     getCinemaMovies().then(films => {
       if (!cancelled) {
         setCinemaMovies(films);
         setCinemaLoading(false);
+      }
+    });
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    getUpcomingMovies().then(films => {
+      if (!cancelled) {
+        setUpcomingMovies(films);
+        setUpcomingLoading(false);
       }
     });
     return () => { cancelled = true; };
@@ -141,6 +156,34 @@ export function HomeView() {
       </section>
 
 
+      {/* ── Zapowiedzi filmowe ──────────────────────────────── */}
+      <section className="px-4 mb-5">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-base font-bold text-gray-900 dark:text-white">🎭 Zapowiedzi filmowe</h2>
+          <span className="text-xs text-gray-400">TMDB</span>
+        </div>
+
+        {upcomingLoading ? (
+          <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-hide">
+            {[1,2,3,4].map(i => (
+              <div key={i} className="flex-shrink-0 w-32 animate-pulse">
+                <div className="w-32 h-44 rounded-2xl bg-gray-200 dark:bg-slate-700 mb-2" />
+                <div className="h-3 bg-gray-200 dark:bg-slate-700 rounded w-4/5 mb-1" />
+                <div className="h-3 bg-gray-200 dark:bg-slate-700 rounded w-2/5" />
+              </div>
+            ))}
+          </div>
+        ) : upcomingMovies.length === 0 ? (
+          <p className="text-sm text-gray-400 py-4 text-center">Brak zapowiedzi</p>
+        ) : (
+          <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-hide">
+            {upcomingMovies.map(film => (
+              <UpcomingCard key={film.id} film={film} onSelect={setSelectedUpcoming} />
+            ))}
+          </div>
+        )}
+      </section>
+
       {/* Padding na dole dla nawigacji */}
       <div className="h-4" />
     </div>
@@ -148,6 +191,11 @@ export function HomeView() {
     {/* Modal szczegółów filmu kinowego */}
     {selectedCinemaFilm && (
       <CinemaDetailModal film={selectedCinemaFilm} onClose={() => setSelectedCinemaFilm(null)} />
+    )}
+
+    {/* Modal zapowiedzi filmowej */}
+    {selectedUpcoming && (
+      <UpcomingDetailModal film={selectedUpcoming} onClose={() => setSelectedUpcoming(null)} />
     )}
   </>
   );
@@ -201,6 +249,187 @@ function CinemaCard({ film, onSelect }: { film: FilmwebData; onSelect: (f: Filmw
         <p className="text-[10px] text-gray-400">{film.year}</p>
       )}
     </button>
+  );
+}
+
+// ── Helpers dla daty premiery ─────────────────────────────
+
+function formatReleaseDate(dateStr: string | null): { label: string; color: string } {
+  if (!dateStr) return { label: 'Wkrótce', color: 'bg-gray-500' };
+  const now = new Date();
+  const rel = new Date(dateStr);
+  const diffDays = Math.round((rel.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+  const formatted = rel.toLocaleDateString('pl-PL', { day: 'numeric', month: 'short', year: 'numeric' });
+
+  if (diffDays < 0) return { label: formatted, color: 'bg-gray-500' };
+  if (diffDays <= 14) return { label: `Za ${diffDays} dni`, color: 'bg-green-600' };
+  if (diffDays <= 60) return { label: formatted, color: 'bg-blue-600' };
+  if (diffDays <= 180) return { label: formatted, color: 'bg-violet-600' };
+  return { label: formatted, color: 'bg-purple-800' };
+}
+
+// ── Karta zapowiedzi ──────────────────────────────────────
+
+function UpcomingCard({ film, onSelect }: { film: TmdbMovie; onSelect: (f: TmdbMovie) => void }) {
+  const { label, color } = formatReleaseDate(film.releaseDate);
+  return (
+    <button
+      onClick={() => onSelect(film)}
+      className="flex-shrink-0 w-28 text-left group"
+    >
+      <div className="w-28 h-40 rounded-2xl overflow-hidden bg-gray-100 dark:bg-slate-700 relative mb-2 shadow-sm">
+        {film.poster ? (
+          <img
+            src={film.poster}
+            alt={film.title}
+            className="w-full h-full object-cover"
+            loading="lazy"
+            onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center">
+            <Film size={32} className="text-gray-300 dark:text-slate-500" />
+          </div>
+        )}
+        {/* Badge daty premiery */}
+        <div className={`absolute bottom-1.5 left-1 right-1 flex items-center justify-center ${color} rounded-lg px-1 py-0.5`}>
+          <span className="text-white text-[9px] font-bold text-center leading-tight">{label}</span>
+        </div>
+      </div>
+      <p className="text-xs font-semibold text-gray-800 dark:text-gray-200 line-clamp-2 leading-tight mb-0.5">
+        {film.title}
+      </p>
+      {film.originalTitle && (
+        <p className="text-[10px] text-gray-400 truncate">{film.originalTitle}</p>
+      )}
+    </button>
+  );
+}
+
+// ── Modal zapowiedzi ──────────────────────────────────────
+
+function UpcomingDetailModal({ film, onClose }: { film: TmdbMovie; onClose: () => void }) {
+  const [visible, setVisible] = useState(false);
+  const [closing, setClosing] = useState(false);
+  useEffect(() => {
+    const f1 = requestAnimationFrame(() => {
+      const f2 = requestAnimationFrame(() => setVisible(true));
+      return () => cancelAnimationFrame(f2);
+    });
+    return () => cancelAnimationFrame(f1);
+  }, []);
+  const handleClose = () => { setClosing(true); setTimeout(onClose, 320); };
+  const sheetVisible = visible && !closing;
+
+  useEffect(() => {
+    const scrollY = window.scrollY;
+    document.body.style.overflow = 'hidden';
+    document.body.style.position = 'fixed';
+    document.body.style.top = `-${scrollY}px`;
+    document.body.style.width = '100%';
+    return () => {
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.top = '';
+      document.body.style.width = '';
+      window.scrollTo(0, scrollY);
+    };
+  }, []);
+
+  const { label, color } = formatReleaseDate(film.releaseDate);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center">
+      <div
+        className={clsx('absolute inset-0 bg-black/60 backdrop-blur-sm modal-backdrop', sheetVisible ? 'modal-visible' : 'modal-hidden')}
+        style={{ touchAction: 'none' }}
+        onClick={handleClose}
+      />
+      <div
+        className={clsx('relative w-full max-w-lg bg-white dark:bg-slate-900 rounded-t-3xl shadow-2xl flex flex-col sheet-panel', sheetVisible ? 'sheet-visible' : 'sheet-hidden')}
+        style={{ maxHeight: 'min(92svh, 92vh)', overscrollBehavior: 'contain' }}
+      >
+        {/* Uchwyt + zamknij */}
+        <div className="flex-shrink-0 pt-3 pb-0 flex items-center justify-center relative">
+          <div className="w-10 h-1 bg-gray-300 dark:bg-slate-600 rounded-full" />
+          <button
+            onClick={handleClose}
+            className="absolute right-4 w-8 h-8 rounded-full bg-gray-100 dark:bg-slate-800 flex items-center justify-center text-gray-500"
+          >
+            <X size={16} style={{ pointerEvents: 'none' }} />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto min-h-0" style={{ WebkitOverflowScrolling: 'touch' } as React.CSSProperties}>
+          {/* Hero: backdrop lub poster */}
+          {film.backdrop ? (
+            <div className="w-full h-44 relative overflow-hidden">
+              <img src={film.backdrop} alt={film.title} className="w-full h-full object-cover" />
+              <div className="absolute inset-0 bg-gradient-to-t from-white dark:from-slate-900 via-transparent to-transparent" />
+            </div>
+          ) : null}
+
+          {/* Poster + info */}
+          <div className="flex gap-4 px-5 pt-4 pb-4">
+            {film.poster ? (
+              <img
+                src={film.poster}
+                alt={film.title}
+                className="w-24 h-36 object-cover rounded-2xl flex-shrink-0 shadow-md"
+              />
+            ) : (
+              <div className="w-24 h-36 rounded-2xl bg-gray-100 dark:bg-slate-700 flex items-center justify-center flex-shrink-0">
+                <Film size={28} className="text-gray-400" />
+              </div>
+            )}
+            <div className="flex-1 min-w-0 pt-1">
+              <h2 className="text-lg font-bold text-gray-900 dark:text-white leading-tight">{film.title}</h2>
+              {film.originalTitle && (
+                <p className="text-sm text-gray-400 italic mt-0.5">{film.originalTitle}</p>
+              )}
+
+              {/* Ocena TMDB */}
+              {film.rating != null && film.voteCount > 10 && (
+                <div className="flex items-center gap-1 mt-2">
+                  <Star size={14} className="fill-amber-400 text-amber-400" />
+                  <span className="text-lg font-bold text-gray-900 dark:text-white">{film.rating.toFixed(1)}</span>
+                  <span className="text-xs text-gray-400">/ 10</span>
+                  <span className="text-xs text-gray-400 ml-1">({film.voteCount.toLocaleString('pl-PL')} ocen)</span>
+                </div>
+              )}
+
+              {/* Badge premiery */}
+              <div className="mt-2.5">
+                <span className={`inline-flex items-center gap-1 text-xs font-bold text-white px-2.5 py-1 rounded-full ${color}`}>
+                  <Calendar size={11} />
+                  {label}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Opis */}
+          {film.overview && (
+            <div className="px-5 pb-4">
+              <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5">Opis</p>
+              <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">{film.overview}</p>
+            </div>
+          )}
+
+          {/* Link do TMDB */}
+          <div className="px-5 pb-6">
+            <a
+              href={film.tmdbUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-center gap-2 w-full py-3 rounded-2xl border-2 border-violet-600 text-violet-600 font-bold text-sm transition-colors hover:bg-violet-50 dark:hover:bg-violet-900/20"
+            >
+              Zobacz na TMDB
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 

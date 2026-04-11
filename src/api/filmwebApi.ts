@@ -18,6 +18,35 @@ export interface FilmwebData {
   synopsis?: string | null;   // streszczenie fabuły
 }
 
+// ─── Zapowiedzi filmowe (TMDB) ───────────────────────────
+
+export interface TmdbMovie {
+  id: number;
+  title: string;
+  originalTitle: string | null;
+  overview: string | null;
+  releaseDate: string | null;   // "2026-07-15" lub null
+  rating: number | null;        // 0-10
+  voteCount: number;
+  poster: string | null;
+  backdrop: string | null;
+  popularity: number;
+  tmdbUrl: string;
+}
+
+export async function getUpcomingMovies(): Promise<TmdbMovie[]> {
+  try {
+    const res = await fetch('/api/tmdb/upcoming', {
+      signal: AbortSignal.timeout(20000),
+    });
+    if (!res.ok) return [];
+    const json = await res.json();
+    return json.films ?? [];
+  } catch {
+    return [];
+  }
+}
+
 export interface FilmwebBatchResult {
   [title: string]: FilmwebData | null;
 }
