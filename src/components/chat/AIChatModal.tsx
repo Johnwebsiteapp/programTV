@@ -481,7 +481,7 @@ function SearchResults({ results, onOpen }: {
       {/* Nagłówek */}
       <div className="px-3.5 py-2 bg-violet-600 flex items-center gap-2">
         <Tv size={13} className="text-white/80" />
-        <span className="text-xs font-bold text-white">
+        <span className="text-sm font-bold text-white">
           {uniqueCount === 1 ? '1 tytuł' : `${uniqueCount} tytułów`}
           {results.length !== uniqueCount && (
             <span className="font-normal opacity-80"> · {results.length} emisji</span>
@@ -503,19 +503,19 @@ function SearchResults({ results, onOpen }: {
               >
                 <span className="text-lg flex-shrink-0 mt-0.5">{channel.logoEmoji}</span>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">{title}</p>
-                  <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                  <p className="text-base font-semibold text-gray-900 dark:text-white truncate">{title}</p>
+                  <div className="flex items-center gap-2 mt-1 flex-wrap">
                     {filmweb ? (
                       <>
                         {filmweb.rate != null && (
-                          <span className="flex items-center gap-0.5 text-[11px] font-bold text-amber-500">
-                            <Star size={9} className="fill-amber-400 text-amber-400" />
+                          <span className="flex items-center gap-0.5 text-sm font-bold text-amber-500">
+                            <Star size={12} className="fill-amber-400 text-amber-400" />
                             {filmweb.rate.toFixed(1)}
                           </span>
                         )}
-                        {filmweb.year && <span className="text-[11px] text-gray-400">{filmweb.year}</span>}
+                        {filmweb.year && <span className="text-sm text-gray-400">{filmweb.year}</span>}
                         {filmweb.genres.slice(0, 2).map(g => (
-                          <span key={g} className="text-[10px] px-1.5 py-0.5 bg-violet-50 dark:bg-violet-900/20 text-violet-700 dark:text-violet-300 rounded-full capitalize">{g}</span>
+                          <span key={g} className="text-xs px-2 py-0.5 bg-violet-50 dark:bg-violet-900/20 text-violet-700 dark:text-violet-300 rounded-full capitalize">{g}</span>
                         ))}
                         <a
                           href={filmwebLink(filmweb)}
@@ -542,9 +542,9 @@ function SearchResults({ results, onOpen }: {
                     ) : null}
                   </div>
                   {/* Liczba emisji */}
-                  <div className="flex items-center gap-1 mt-1">
-                    <Clock size={10} className="text-violet-500" />
-                    <span className="text-[11px] text-violet-600 dark:text-violet-400 font-medium">
+                  <div className="flex items-center gap-1 mt-1.5">
+                    <Clock size={12} className="text-violet-500" />
+                    <span className="text-sm text-violet-600 dark:text-violet-400 font-medium">
                       {items.length === 1 ? '1 emisja' : `${items.length} emisje/i`}
                     </span>
                   </div>
@@ -564,10 +564,10 @@ function SearchResults({ results, onOpen }: {
                       onClick={() => onOpen(program)}
                       className="w-full text-left px-5 py-2 hover:bg-violet-50 dark:hover:bg-violet-900/20 transition-colors flex items-center gap-2.5"
                     >
-                      <span className="text-base flex-shrink-0">{ch.logoEmoji}</span>
-                      <span className="text-[11px] font-bold text-violet-600 dark:text-violet-400 w-10 flex-shrink-0">{dayLabel}</span>
-                      <span className="text-[11px] font-semibold text-gray-700 dark:text-gray-300">{formatTime(program.startTime)}</span>
-                      <span className="text-[11px] text-gray-400 truncate">{ch.name}</span>
+                      <span className="text-lg flex-shrink-0">{ch.logoEmoji}</span>
+                      <span className="text-sm font-bold text-violet-600 dark:text-violet-400 w-12 flex-shrink-0">{dayLabel}</span>
+                      <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">{formatTime(program.startTime)}</span>
+                      <span className="text-sm text-gray-400 truncate">{ch.name}</span>
                     </button>
                   ))}
                 </div>
@@ -581,7 +581,7 @@ function SearchResults({ results, onOpen }: {
       {groups.length > MAX_PREVIEW && (
         <button
           onClick={() => setShowAll(e => !e)}
-          className="w-full py-2 text-xs font-semibold text-violet-600 dark:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-900/10 transition-colors border-t border-gray-200 dark:border-slate-700"
+          className="w-full py-2.5 text-sm font-semibold text-violet-600 dark:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-900/10 transition-colors border-t border-gray-200 dark:border-slate-700"
         >
           {showAll ? 'Pokaż mniej ↑' : `Pokaż wszystkie ${uniqueCount} tytuły ↓`}
         </button>
