@@ -361,14 +361,6 @@ function UpcomingDetailModal({ film, onClose }: { film: TmdbMovie; onClose: () =
         </div>
 
         <div className="flex-1 overflow-y-auto min-h-0" style={{ WebkitOverflowScrolling: 'touch' } as React.CSSProperties}>
-          {/* Hero: backdrop lub poster */}
-          {film.backdrop ? (
-            <div className="w-full h-44 relative overflow-hidden">
-              <img src={film.backdrop} alt={film.title} className="w-full h-full object-cover" />
-              <div className="absolute inset-0 bg-gradient-to-t from-white dark:from-slate-900 via-transparent to-transparent" />
-            </div>
-          ) : null}
-
           {/* Poster + info */}
           <div className="flex gap-4 px-5 pt-4 pb-4">
             {film.poster ? (
@@ -388,13 +380,13 @@ function UpcomingDetailModal({ film, onClose }: { film: TmdbMovie; onClose: () =
                 <p className="text-sm text-gray-400 italic mt-0.5">{film.originalTitle}</p>
               )}
 
-              {/* Ocena TMDB */}
-              {film.rating != null && film.voteCount > 10 && (
+              {/* Ocena Filmweb */}
+              {film.rating != null && film.rateCount > 10 && (
                 <div className="flex items-center gap-1 mt-2">
                   <Star size={14} className="fill-amber-400 text-amber-400" />
                   <span className="text-lg font-bold text-gray-900 dark:text-white">{film.rating.toFixed(1)}</span>
                   <span className="text-xs text-gray-400">/ 10</span>
-                  <span className="text-xs text-gray-400 ml-1">({film.voteCount.toLocaleString('pl-PL')} ocen)</span>
+                  <span className="text-xs text-gray-400 ml-1">({film.rateCount.toLocaleString('pl-PL')} ocen)</span>
                 </div>
               )}
 
@@ -405,26 +397,35 @@ function UpcomingDetailModal({ film, onClose }: { film: TmdbMovie; onClose: () =
                   {label}
                 </span>
               </div>
+
+              {/* Gatunki */}
+              {film.genres.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-2">
+                  {film.genres.slice(0, 3).map(g => (
+                    <span key={g} className="text-[10px] px-2 py-0.5 rounded-full bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-400 font-medium capitalize">{g}</span>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
           {/* Opis */}
-          {film.overview && (
+          {film.synopsis && (
             <div className="px-5 pb-4">
               <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5">Opis</p>
-              <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">{film.overview}</p>
+              <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">{film.synopsis}</p>
             </div>
           )}
 
-          {/* Link do TMDB */}
+          {/* Link do Filmweb */}
           <div className="px-5 pb-6">
             <a
-              href={film.tmdbUrl}
+              href={film.filmwebUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center justify-center gap-2 w-full py-3 rounded-2xl border-2 border-violet-600 text-violet-600 font-bold text-sm transition-colors hover:bg-violet-50 dark:hover:bg-violet-900/20"
+              className="flex items-center justify-center gap-2 w-full py-3 rounded-2xl border-2 border-primary-600 text-primary-600 font-bold text-sm transition-colors hover:bg-primary-50 dark:hover:bg-primary-900/20"
             >
-              Zobacz na TMDB
+              Zobacz na Filmweb
             </a>
           </div>
         </div>

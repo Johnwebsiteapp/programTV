@@ -589,91 +589,141 @@ app.get('/api/imdb/search', async (req, res) => {
   }
 });
 
-// ─── TMDB — ZAPOWIEDZI FILMOWE ────────────────────────────
+// ─── ZAPOWIEDZI FILMOWE (Filmweb, bez klucza API) ─────────
 // GET /api/tmdb/upcoming
-// Zwraca filmy zapowiedziane / w produkcji z The Movie Database (TMDB)
-const tmdbCache = new Map();
-const TMDB_CACHE_TTL = 6 * 60 * 60 * 1000; // 6h
+const upcomingCache = new Map();
+const UPCOMING_CACHE_TTL = 6 * 60 * 60 * 1000; // 6h
+
+const POSTER_BASE_FW = 'https://fwcdn.pl/fpo';
+function buildPosterUrlFw(poster) {
+  if (!poster) return null;
+  const p = typeof poster === 'object' ? (poster.path ?? poster.url ?? null) : poster;
+  if (!p) return null;
+  if (p.startsWith('http')) return p;
+  return `${POSTER_BASE_FW}${p}`;
+}
+
+async function fetchFilmDetailsFw(filmId) {
+  try {
+    const [prevRes, ratingRes] = await Promise.all([
+      fetch(`https://www.filmweb.pl/api/v1/film/${filmId}/preview`, { headers: FILMWEB_HEADERS, timeout: 8000 }),
+      fetch(`https://www.filmweb.pl/api/v1/film/${filmId}/rating`, { headers: FILMWEB_HEADERS, timeout: 8000 }),
+    ]);
+    if (!prevRes.ok) return null;
+
+    const preview = await prevRes.json();
+    const rating  = ratingRes.ok ? await ratingRes.json() : {};
+
+    const rawTitle = typeof preview.title === 'object'
+      ? (preview.title?.title ?? preview.title?.pl ?? preview.title?.text ?? '')
+      : (preview.title ?? '');
+    const origTitle = typeof preview.originalTitle === 'object'
+      ? (preview.originalTitle?.title ?? preview.originalTitle?.text ?? null)
+      : (preview.originalTitle ?? null);
+    const title = rawTitle || origTitle || String(filmId);
+    const genres    = (preview.genres ?? []).map(g => (g?.name?.text ?? g?.name ?? '').toLowerCase()).filter(Boolean);
+    const countries = (preview.countries ?? []).map(c => COUNTRY_CODES[c?.code] ?? c?.code ?? '').filter(Boolean);
+    const synopsis  = (() => {
+      const s = preview.plot?.synopsis ?? preview.description ?? null;
+      return s && typeof s === 'object' ? (s.synopsis ?? null) : s;
+    })();
+
+    return {
+      id: filmId,
+      title,
+      originalTitle: origTitle !== title ? origTitle : null,
+      year: preview.year ?? null,
+      releaseDate: preview.releaseWorldDate ?? preview.releaseDate ?? null,
+      rating: typeof rating.rate === 'number' ? Math.round(rating.rate * 10) / 10 : null,
+      rateCount: rating.count ?? 0,
+      genres,
+      countries,
+      poster: buildPosterUrlFw(preview.poster),
+      synopsis,
+      filmwebUrl: `https://www.filmweb.pl/film/${title.replace(/ /g, '+')}`,
+    };
+  } catch { return null; }
+}
 
 app.get('/api/tmdb/upcoming', async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
 
-  const TMDB_KEY = process.env.TMDB_API_KEY;
-  if (!TMDB_KEY) {
-    return res.status(503).json({ error: 'Brak TMDB_API_KEY w .env', films: [] });
-  }
-
-  const CACHE_KEY = '__tmdb_upcoming__';
-  const cached = tmdbCache.get(CACHE_KEY);
-  if (cached && Date.now() - cached.fetchedAt < TMDB_CACHE_TTL) {
+  const CACHE_KEY = '__fw_upcoming__';
+  const cached = upcomingCache.get(CACHE_KEY);
+  if (cached && Date.now() - cached.fetchedAt < UPCOMING_CACHE_TTL) {
     return res.json({ films: cached.data });
   }
 
   try {
-    const today = new Date().toISOString().split('T')[0];
-    // Za 1 tydzień — granica "upcoming" TMDB
-    const in1week = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-    // Za 9 miesięcy — szukamy zapowiedzianych filmów dalej w przyszłości
-    const in9months = new Date(Date.now() + 270 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    let filmIds = [];
+    const endpoints = [
+      'https://www.filmweb.pl/api/v1/film/comingSoon?page=0&pageSize=40',
+      'https://www.filmweb.pl/api/v1/film/anticipated?page=0&pageSize=40',
+      'https://www.filmweb.pl/api/v1/film/mostAnticipated?page=0&pageSize=40',
+      'https://www.filmweb.pl/api/v1/film/wantToSee?page=0&pageSize=40',
+    ];
 
-    const TMDB_BASE = 'https://api.themoviedb.org/3';
-    const lang = 'pl-PL';
+    for (const url of endpoints) {
+      try {
+        const r = await fetch(url, { headers: FILMWEB_HEADERS, timeout: 8000 });
+        if (!r.ok) continue;
+        const json = await r.json();
+        const items = json?.items ?? json?.films ?? json?.data?.items ?? json?.results ?? (Array.isArray(json) ? json : null);
+        if (Array.isArray(items) && items.length > 0) {
+          filmIds = items
+            .map(i => i?.id ?? i?.filmId ?? i?.film?.id ?? (typeof i === 'number' ? i : null))
+            .filter(Boolean).slice(0, 40);
+          console.log(`[upcoming] Endpoint: ${url} — ${filmIds.length} filmów`);
+          break;
+        }
+      } catch (e) { console.warn(`[upcoming] ${url}:`, e.message); }
+    }
 
-    const [upcomingRes, discover1Res, discover2Res] = await Promise.all([
-      // Już potwierdzone premiery (najbliższe tygodnie)
-      fetch(`${TMDB_BASE}/movie/upcoming?api_key=${TMDB_KEY}&language=${lang}&region=PL&page=1`),
-      // Popularne filmy za 1–4 miesiące
-      fetch(`${TMDB_BASE}/discover/movie?api_key=${TMDB_KEY}&language=${lang}&sort_by=popularity.desc&primary_release_date.gte=${in1week}&primary_release_date.lte=${in9months}&page=1`),
-      // Druga strona odkryć (więcej tytułów)
-      fetch(`${TMDB_BASE}/discover/movie?api_key=${TMDB_KEY}&language=${lang}&sort_by=popularity.desc&primary_release_date.gte=${in1week}&primary_release_date.lte=${in9months}&page=2`),
-    ]);
+    // Fallback — scraping HTML
+    if (filmIds.length === 0) {
+      const pageUrls = ['https://www.filmweb.pl/films/coming-soon', 'https://www.filmweb.pl/films/soon'];
+      for (const pageUrl of pageUrls) {
+        try {
+          const r = await fetch(pageUrl, {
+            headers: { ...FILMWEB_HEADERS, Accept: 'text/html,application/xhtml+xml' },
+            timeout: 12000,
+          });
+          if (!r.ok) continue;
+          const html = await r.text();
+          const linkMatches = [...html.matchAll(/\/film\/[^/"?]+-(\d{6,8})/g)];
+          if (linkMatches.length > 0) {
+            const seen = new Set();
+            filmIds = linkMatches.map(m => parseInt(m[1])).filter(id => !seen.has(id) && seen.add(id)).slice(0, 40);
+            console.log(`[upcoming] HTML scrape ${pageUrl}: ${filmIds.length} filmów`);
+            break;
+          }
+        } catch (e) { console.warn('[upcoming] HTML scrape:', e.message); }
+      }
+    }
 
-    const [upcoming, discover1, discover2] = await Promise.all([
-      upcomingRes.ok ? upcomingRes.json() : { results: [] },
-      discover1Res.ok ? discover1Res.json() : { results: [] },
-      discover2Res.ok ? discover2Res.json() : { results: [] },
-    ]);
+    if (filmIds.length === 0) return res.json({ films: [] });
 
-    // Połącz i usuń duplikaty
-    const seen = new Set();
-    const raw = [
-      ...(upcoming.results ?? []),
-      ...(discover1.results ?? []),
-      ...(discover2.results ?? []),
-    ].filter(f => {
-      if (!f?.id || seen.has(f.id)) return false;
-      seen.add(f.id);
-      return true;
-    });
+    const details = [];
+    const CONC = 6;
+    for (let i = 0; i < filmIds.length; i += CONC) {
+      const batch = filmIds.slice(i, i + CONC);
+      const results = await Promise.all(batch.map(fetchFilmDetailsFw));
+      details.push(...results.filter(Boolean));
+    }
 
-    const films = raw
-      .map(f => ({
-        id: f.id,
-        title: f.title || f.original_title || '',
-        originalTitle: (f.original_title && f.original_title !== f.title) ? f.original_title : null,
-        overview: f.overview || null,
-        releaseDate: f.release_date || null,
-        rating: f.vote_average > 0 ? Math.round(f.vote_average * 10) / 10 : null,
-        voteCount: f.vote_count ?? 0,
-        poster: f.poster_path ? `https://image.tmdb.org/t/p/w300${f.poster_path}` : null,
-        backdrop: f.backdrop_path ? `https://image.tmdb.org/t/p/w500${f.backdrop_path}` : null,
-        popularity: f.popularity ?? 0,
-        tmdbUrl: `https://www.themoviedb.org/movie/${f.id}`,
-      }))
-      .filter(f => f.title)
+    const todayStr = new Date().toISOString().split('T')[0];
+    const films = details
+      .filter(f => !f.releaseDate || f.releaseDate >= todayStr)
       .sort((a, b) => {
-        // Sortuj: najpierw po dacie premiery (rosnąco), potem po popularności
         const da = a.releaseDate ? new Date(a.releaseDate).getTime() : 9e15;
         const db = b.releaseDate ? new Date(b.releaseDate).getTime() : 9e15;
-        if (da !== db) return da - db;
-        return b.popularity - a.popularity;
-      })
-      .slice(0, 40);
+        return da - db;
+      });
 
-    tmdbCache.set(CACHE_KEY, { data: films, fetchedAt: Date.now() });
+    upcomingCache.set(CACHE_KEY, { data: films, fetchedAt: Date.now() });
     res.json({ films });
   } catch (err) {
-    console.error('[tmdb]', err.message);
+    console.error('[upcoming]', err.message);
     res.status(502).json({ films: [] });
   }
 });

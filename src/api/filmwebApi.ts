@@ -24,14 +24,15 @@ export interface TmdbMovie {
   id: number;
   title: string;
   originalTitle: string | null;
-  overview: string | null;
+  synopsis?: string | null;     // opis fabuły
   releaseDate: string | null;   // "2026-07-15" lub null
+  year: number | null;
   rating: number | null;        // 0-10
-  voteCount: number;
+  rateCount: number;
+  genres: string[];
+  countries: string[];
   poster: string | null;
-  backdrop: string | null;
-  popularity: number;
-  tmdbUrl: string;
+  filmwebUrl: string;
 }
 
 export async function getUpcomingMovies(): Promise<TmdbMovie[]> {
