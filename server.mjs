@@ -660,8 +660,7 @@ app.get('/api/tmdb/upcoming', async (req, res) => {
     return res.json({ films: cached.data });
   }
 
-  const TMDB_KEY = process.env.TMDB_API_KEY;
-  if (!TMDB_KEY) return res.status(503).json({ error: 'Brak TMDB_API_KEY', films: [] });
+  const TMDB_KEY = process.env.TMDB_API_KEY || 'e21080713ee1e49ed939be3b37d36943';
 
   try {
     const today = new Date().toISOString().split('T')[0];
