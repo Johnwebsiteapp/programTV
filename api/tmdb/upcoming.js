@@ -1,79 +1,167 @@
 // ============================================================
-// VERCEL SERVERLESS FUNCTION — Zapowiedzi filmowe (TMDB)
+// VERCEL SERVERLESS FUNCTION — Zapowiedzi filmowe
 // GET /api/tmdb/upcoming
+// Pobiera nadchodzące premiery kinowe z Filmweb showtimes
+// Bez potrzeby klucza API / rejestracji
 // ============================================================
+
+import { FILMWEB_HEADERS, COUNTRY_CODES } from '../_filmweb.js';
 
 let cache = null;
 let cacheTime = 0;
 const CACHE_TTL = 6 * 60 * 60 * 1000; // 6h
 
+const POSTER_BASE = 'https://fwcdn.pl/fpo';
+
+function buildPosterUrl(poster) {
+  if (!poster) return null;
+  const p = typeof poster === 'object' ? (poster.path ?? poster.url ?? null) : poster;
+  if (!p) return null;
+  const fixed = p.replace('.$.','.3.');
+  return fixed.startsWith('http') ? fixed : `${POSTER_BASE}${fixed}`;
+}
+
+async function fetchFilmDetails(filmId) {
+  try {
+    const [prevRes, ratingRes] = await Promise.all([
+      fetch(`https://www.filmweb.pl/api/v1/film/${filmId}/preview`, {
+        headers: FILMWEB_HEADERS, signal: AbortSignal.timeout(8000),
+      }),
+      fetch(`https://www.filmweb.pl/api/v1/film/${filmId}/rating`, {
+        headers: FILMWEB_HEADERS, signal: AbortSignal.timeout(8000),
+      }),
+    ]);
+    if (!prevRes.ok) return null;
+
+    const preview = await prevRes.json();
+    const rating  = ratingRes.ok ? await ratingRes.json() : {};
+
+    const rawTitle = typeof preview.title === 'object'
+      ? (preview.title?.title ?? preview.title?.pl ?? preview.title?.text ?? '')
+      : (preview.title ?? '');
+    const origTitle = typeof preview.originalTitle === 'object'
+      ? (preview.originalTitle?.title ?? preview.originalTitle?.text ?? null)
+      : (preview.originalTitle ?? null);
+    const title = rawTitle || origTitle || String(filmId);
+
+    const genres    = (preview.genres ?? []).map(g => (g?.name?.text ?? g?.name ?? '').toLowerCase()).filter(Boolean);
+    const countries = (preview.countries ?? []).map(c => COUNTRY_CODES[c?.code] ?? c?.code ?? '').filter(Boolean);
+    const synopsis  = (() => {
+      const s = preview.plot?.synopsis ?? preview.description ?? null;
+      return s && typeof s === 'object' ? (s.synopsis ?? null) : s;
+    })();
+
+    return {
+      id: filmId,
+      title,
+      originalTitle: origTitle !== title ? origTitle : null,
+      year: preview.year ?? null,
+      releaseDate: null, // uzupełniane poniżej z showtimes
+      rating: typeof rating.rate === 'number' ? Math.round(rating.rate * 10) / 10 : null,
+      rateCount: rating.count ?? 0,
+      genres,
+      countries,
+      poster: buildPosterUrl(preview.poster),
+      synopsis,
+      filmwebUrl: `https://www.filmweb.pl/film/${encodeURIComponent(title)}-${preview.year ?? ''}-${filmId}`,
+    };
+  } catch {
+    return null;
+  }
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Cache-Control', 'public, s-maxage=21600, stale-while-revalidate=3600');
-
-  const TMDB_KEY = process.env.TMDB_API_KEY || 'e547e17d4e91f3e62a571655cd1ccaff';
 
   if (cache && Date.now() - cacheTime < CACHE_TTL) {
     return res.json({ films: cache });
   }
 
   try {
-    const today = new Date().toISOString().split('T')[0];
-    const in9months = new Date(Date.now() + 270 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    const today = new Date();
+    const todayStr = today.toISOString().split('T')[0];
 
-    const BASE = 'https://api.themoviedb.org/3';
-    const lang = 'pl-PL';
+    // Pobierz seanse dla dzisiaj + 7 + 14 + 21 dni
+    const offsets = [0, 7, 14, 21];
+    const dates = offsets.map(n => {
+      const d = new Date(today.getTime() + n * 24 * 60 * 60 * 1000);
+      return d.toISOString().split('T')[0];
+    });
 
-    // Pobierz równolegle: nadchodzące + popularne w przyszłości (2 strony)
-    const [r1, r2, r3] = await Promise.all([
-      fetch(`${BASE}/movie/upcoming?api_key=${TMDB_KEY}&language=${lang}&region=PL&page=1`, { signal: AbortSignal.timeout(10000) }),
-      fetch(`${BASE}/discover/movie?api_key=${TMDB_KEY}&language=${lang}&sort_by=popularity.desc&primary_release_date.gte=${today}&primary_release_date.lte=${in9months}&page=1`, { signal: AbortSignal.timeout(10000) }),
-      fetch(`${BASE}/discover/movie?api_key=${TMDB_KEY}&language=${lang}&sort_by=popularity.desc&primary_release_date.gte=${today}&primary_release_date.lte=${in9months}&page=2`, { signal: AbortSignal.timeout(10000) }),
-    ]);
+    const responses = await Promise.all(
+      dates.map(date =>
+        fetch(`https://www.filmweb.pl/api/v1/showtimes?date=${date}`, {
+          headers: FILMWEB_HEADERS,
+          signal: AbortSignal.timeout(10000),
+        }).then(r => r.ok ? r.json() : null).catch(() => null)
+      )
+    );
 
-    const [d1, d2, d3] = await Promise.all([
-      r1.ok ? r1.json() : { results: [] },
-      r2.ok ? r2.json() : { results: [] },
-      r3.ok ? r3.json() : { results: [] },
-    ]);
+    // Zbuduj mapę filmId → najwcześniejsza przyszła data seansu
+    const filmDateMap = new Map();
+    for (const data of responses) {
+      if (!data?.filmDates) continue;
+      for (const [idStr, datelist] of Object.entries(data.filmDates)) {
+        const filmId = parseInt(idStr);
+        if (!filmId) continue;
+        const future = (Array.isArray(datelist) ? datelist : [])
+          .filter(d => d > todayStr)
+          .sort();
+        if (!future.length) continue;
+        const earliest = future[0];
+        if (!filmDateMap.has(filmId) || earliest < filmDateMap.get(filmId)) {
+          filmDateMap.set(filmId, earliest);
+        }
+      }
+    }
 
-    // Połącz i usuń duplikaty
-    const seen = new Set();
-    const films = [...(d1.results ?? []), ...(d2.results ?? []), ...(d3.results ?? [])]
-      .filter(f => {
-        if (!f?.id || seen.has(f.id)) return false;
-        seen.add(f.id);
-        return true;
-      })
-      .map(f => ({
-        id: f.id,
-        title: f.title || f.original_title || '',
-        originalTitle: (f.original_title && f.original_title !== f.title) ? f.original_title : null,
-        synopsis: f.overview || null,
-        releaseDate: f.release_date || null,
-        year: f.release_date ? parseInt(f.release_date.slice(0, 4)) : null,
-        rating: f.vote_average > 0 ? Math.round(f.vote_average * 10) / 10 : null,
-        rateCount: f.vote_count ?? 0,
-        genres: [],
-        countries: [],
-        poster: f.poster_path ? `https://image.tmdb.org/t/p/w300${f.poster_path}` : null,
-        filmwebUrl: `https://www.themoviedb.org/movie/${f.id}`,
-        popularity: f.popularity ?? 0,
-      }))
-      .filter(f => f.title)
-      .sort((a, b) => {
-        const da = a.releaseDate ? new Date(a.releaseDate).getTime() : 9e15;
-        const db = b.releaseDate ? new Date(b.releaseDate).getTime() : 9e15;
-        if (da !== db) return da - db;
-        return b.popularity - a.popularity;
-      })
+    // Filmy grające dziś
+    const todayData = responses[0];
+    const playingToday = new Set(
+      Object.entries(todayData?.filmDates ?? {})
+        .filter(([, dates]) => Array.isArray(dates) && dates.includes(todayStr))
+        .map(([id]) => parseInt(id))
+    );
+
+    // Nadchodzące = mają przyszłe seanse ale NIE grają dziś
+    let entries = [...filmDateMap.entries()]
+      .filter(([id]) => !playingToday.has(id))
+      .sort(([, a], [, b]) => a.localeCompare(b))
       .slice(0, 40);
+
+    // Fallback: wszystkie przyszłe jeśli nic nie ma
+    if (!entries.length) {
+      entries = [...filmDateMap.entries()]
+        .sort(([, a], [, b]) => a.localeCompare(b))
+        .slice(0, 40);
+    }
+
+    if (!entries.length) return res.json({ films: [] });
+
+    // Pobierz szczegóły (6 równolegle)
+    const details = [];
+    for (let i = 0; i < entries.length; i += 6) {
+      const batch = entries.slice(i, i + 6);
+      const results = await Promise.all(
+        batch.map(async ([id, date]) => {
+          const film = await fetchFilmDetails(id);
+          if (film) film.releaseDate = date;
+          return film;
+        })
+      );
+      details.push(...results.filter(Boolean));
+    }
+
+    const films = details.sort((a, b) =>
+      (a.releaseDate ?? '9999').localeCompare(b.releaseDate ?? '9999')
+    );
 
     cache = films;
     cacheTime = Date.now();
     res.json({ films });
   } catch (err) {
-    console.error('[tmdb/upcoming]', err.message);
+    console.error('[upcoming]', err.message);
     res.status(502).json({ films: [] });
   }
 }
