@@ -655,70 +655,82 @@ app.get('/api/tmdb/upcoming', async (req, res) => {
   }
 
   try {
-    let filmIds = [];
-    const endpoints = [
-      'https://www.filmweb.pl/api/v1/film/comingSoon?page=0&pageSize=40',
-      'https://www.filmweb.pl/api/v1/film/anticipated?page=0&pageSize=40',
-      'https://www.filmweb.pl/api/v1/film/mostAnticipated?page=0&pageSize=40',
-      'https://www.filmweb.pl/api/v1/film/wantToSee?page=0&pageSize=40',
-    ];
+    const today = new Date();
+    const todayStr = today.toISOString().split('T')[0];
 
-    for (const url of endpoints) {
-      try {
-        const r = await fetch(url, { headers: FILMWEB_HEADERS, timeout: 8000 });
-        if (!r.ok) continue;
-        const json = await r.json();
-        const items = json?.items ?? json?.films ?? json?.data?.items ?? json?.results ?? (Array.isArray(json) ? json : null);
-        if (Array.isArray(items) && items.length > 0) {
-          filmIds = items
-            .map(i => i?.id ?? i?.filmId ?? i?.film?.id ?? (typeof i === 'number' ? i : null))
-            .filter(Boolean).slice(0, 40);
-          console.log(`[upcoming] Endpoint: ${url} — ${filmIds.length} filmów`);
-          break;
+    // Pobierz seanse dla dzisiaj i kilku przyszłych dat
+    const dates = [0, 7, 14, 21].map(offset => {
+      const d = new Date(today.getTime() + offset * 24 * 60 * 60 * 1000);
+      return d.toISOString().split('T')[0];
+    });
+
+    const showtimeResponses = await Promise.all(
+      dates.map(date =>
+        fetch(`https://www.filmweb.pl/api/v1/showtimes?date=${date}`, {
+          headers: FILMWEB_HEADERS, timeout: 10000,
+        }).then(r => r.ok ? r.json() : null).catch(() => null)
+      )
+    );
+
+    // Zbierz wszystkie filmy z datami seansów
+    const filmDateMap = new Map(); // filmId → earliest future date
+
+    for (const data of showtimeResponses) {
+      if (!data) continue;
+      const filmDates = data.filmDates ?? {};
+      for (const [filmIdStr, datelist] of Object.entries(filmDates)) {
+        const filmId = parseInt(filmIdStr);
+        if (!filmId) continue;
+        const futureDates = (datelist ?? []).filter(d => d > todayStr).sort();
+        if (futureDates.length === 0) continue;
+        const earliest = futureDates[0];
+        if (!filmDateMap.has(filmId) || earliest < filmDateMap.get(filmId)) {
+          filmDateMap.set(filmId, earliest);
         }
-      } catch (e) { console.warn(`[upcoming] ${url}:`, e.message); }
-    }
-
-    // Fallback — scraping HTML
-    if (filmIds.length === 0) {
-      const pageUrls = ['https://www.filmweb.pl/films/coming-soon', 'https://www.filmweb.pl/films/soon'];
-      for (const pageUrl of pageUrls) {
-        try {
-          const r = await fetch(pageUrl, {
-            headers: { ...FILMWEB_HEADERS, Accept: 'text/html,application/xhtml+xml' },
-            timeout: 12000,
-          });
-          if (!r.ok) continue;
-          const html = await r.text();
-          const linkMatches = [...html.matchAll(/\/film\/[^/"?]+-(\d{6,8})/g)];
-          if (linkMatches.length > 0) {
-            const seen = new Set();
-            filmIds = linkMatches.map(m => parseInt(m[1])).filter(id => !seen.has(id) && seen.add(id)).slice(0, 40);
-            console.log(`[upcoming] HTML scrape ${pageUrl}: ${filmIds.length} filmów`);
-            break;
-          }
-        } catch (e) { console.warn('[upcoming] HTML scrape:', e.message); }
       }
     }
 
-    if (filmIds.length === 0) return res.json({ films: [] });
+    // Filmy grające dzisiaj
+    const todayData = showtimeResponses[0];
+    const todayFilmIds = new Set(
+      Object.keys(todayData?.filmDates ?? {})
+        .filter(id => (todayData.filmDates[id] ?? []).includes(todayStr))
+        .map(Number)
+    );
 
+    // Nadchodzące = grają w przyszłości ale nie dzisiaj
+    let upcomingEntries = [...filmDateMap.entries()]
+      .filter(([id]) => !todayFilmIds.has(id))
+      .sort(([, da], [, db]) => da.localeCompare(db))
+      .slice(0, 40)
+      .map(([id, date]) => ({ id, date }));
+
+    // Fallback: wszystkie przyszłe
+    if (upcomingEntries.length === 0) {
+      upcomingEntries = [...filmDateMap.entries()]
+        .sort(([, da], [, db]) => da.localeCompare(db))
+        .slice(0, 40)
+        .map(([id, date]) => ({ id, date }));
+    }
+
+    if (upcomingEntries.length === 0) return res.json({ films: [] });
+
+    // Pobierz szczegóły filmów
     const details = [];
     const CONC = 6;
-    for (let i = 0; i < filmIds.length; i += CONC) {
-      const batch = filmIds.slice(i, i + CONC);
-      const results = await Promise.all(batch.map(fetchFilmDetailsFw));
+    for (let i = 0; i < upcomingEntries.length; i += CONC) {
+      const batch = upcomingEntries.slice(i, i + CONC);
+      const results = await Promise.all(
+        batch.map(async ({ id, date }) => {
+          const film = await fetchFilmDetailsFw(id);
+          if (film) film.releaseDate = date;
+          return film;
+        })
+      );
       details.push(...results.filter(Boolean));
     }
 
-    const todayStr = new Date().toISOString().split('T')[0];
-    const films = details
-      .filter(f => !f.releaseDate || f.releaseDate >= todayStr)
-      .sort((a, b) => {
-        const da = a.releaseDate ? new Date(a.releaseDate).getTime() : 9e15;
-        const db = b.releaseDate ? new Date(b.releaseDate).getTime() : 9e15;
-        return da - db;
-      });
+    const films = details.sort((a, b) => (a.releaseDate ?? '9999').localeCompare(b.releaseDate ?? '9999'));
 
     upcomingCache.set(CACHE_KEY, { data: films, fetchedAt: Date.now() });
     res.json({ films });
