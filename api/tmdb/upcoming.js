@@ -11,10 +11,7 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Cache-Control', 'public, s-maxage=21600, stale-while-revalidate=3600');
 
-  const TMDB_KEY = process.env.TMDB_API_KEY;
-  if (!TMDB_KEY) {
-    return res.status(503).json({ error: 'Brak TMDB_API_KEY', films: [] });
-  }
+  const TMDB_KEY = process.env.TMDB_API_KEY || 'e547e17d4e91f3e62a571655cd1ccaff';
 
   if (cache && Date.now() - cacheTime < CACHE_TTL) {
     return res.json({ films: cache });
