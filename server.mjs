@@ -648,94 +648,68 @@ async function fetchFilmDetailsFw(filmId) {
 app.get('/api/tmdb/upcoming', async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
 
-  const CACHE_KEY = '__fw_upcoming__';
+  const CACHE_KEY = '__tmdb_upcoming__';
   const cached = upcomingCache.get(CACHE_KEY);
   if (cached && Date.now() - cached.fetchedAt < UPCOMING_CACHE_TTL) {
     return res.json({ films: cached.data });
   }
 
+  const TMDB_KEY = process.env.TMDB_API_KEY;
+  if (!TMDB_KEY) return res.status(503).json({ error: 'Brak TMDB_API_KEY', films: [] });
+
   try {
-    const today = new Date();
-    const todayStr = today.toISOString().split('T')[0];
+    const today = new Date().toISOString().split('T')[0];
+    const in9months = new Date(Date.now() + 270 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    const BASE = 'https://api.themoviedb.org/3';
+    const lang = 'pl-PL';
 
-    // Pobierz seanse dla dzisiaj i kilku przyszłych dat
-    const dates = [0, 7, 14, 21].map(offset => {
-      const d = new Date(today.getTime() + offset * 24 * 60 * 60 * 1000);
-      return d.toISOString().split('T')[0];
-    });
+    const [r1, r2, r3] = await Promise.all([
+      fetch(`${BASE}/movie/upcoming?api_key=${TMDB_KEY}&language=${lang}&region=PL&page=1`),
+      fetch(`${BASE}/discover/movie?api_key=${TMDB_KEY}&language=${lang}&sort_by=popularity.desc&primary_release_date.gte=${today}&primary_release_date.lte=${in9months}&page=1`),
+      fetch(`${BASE}/discover/movie?api_key=${TMDB_KEY}&language=${lang}&sort_by=popularity.desc&primary_release_date.gte=${today}&primary_release_date.lte=${in9months}&page=2`),
+    ]);
 
-    const showtimeResponses = await Promise.all(
-      dates.map(date =>
-        fetch(`https://www.filmweb.pl/api/v1/showtimes?date=${date}`, {
-          headers: FILMWEB_HEADERS, timeout: 10000,
-        }).then(r => r.ok ? r.json() : null).catch(() => null)
-      )
-    );
+    const [d1, d2, d3] = await Promise.all([
+      r1.ok ? r1.json() : { results: [] },
+      r2.ok ? r2.json() : { results: [] },
+      r3.ok ? r3.json() : { results: [] },
+    ]);
 
-    // Zbierz wszystkie filmy z datami seansów
-    const filmDateMap = new Map(); // filmId → earliest future date
-
-    for (const data of showtimeResponses) {
-      if (!data) continue;
-      const filmDates = data.filmDates ?? {};
-      for (const [filmIdStr, datelist] of Object.entries(filmDates)) {
-        const filmId = parseInt(filmIdStr);
-        if (!filmId) continue;
-        const futureDates = (datelist ?? []).filter(d => d > todayStr).sort();
-        if (futureDates.length === 0) continue;
-        const earliest = futureDates[0];
-        if (!filmDateMap.has(filmId) || earliest < filmDateMap.get(filmId)) {
-          filmDateMap.set(filmId, earliest);
-        }
-      }
-    }
-
-    // Filmy grające dzisiaj
-    const todayData = showtimeResponses[0];
-    const todayFilmIds = new Set(
-      Object.keys(todayData?.filmDates ?? {})
-        .filter(id => (todayData.filmDates[id] ?? []).includes(todayStr))
-        .map(Number)
-    );
-
-    // Nadchodzące = grają w przyszłości ale nie dzisiaj
-    let upcomingEntries = [...filmDateMap.entries()]
-      .filter(([id]) => !todayFilmIds.has(id))
-      .sort(([, da], [, db]) => da.localeCompare(db))
-      .slice(0, 40)
-      .map(([id, date]) => ({ id, date }));
-
-    // Fallback: wszystkie przyszłe
-    if (upcomingEntries.length === 0) {
-      upcomingEntries = [...filmDateMap.entries()]
-        .sort(([, da], [, db]) => da.localeCompare(db))
-        .slice(0, 40)
-        .map(([id, date]) => ({ id, date }));
-    }
-
-    if (upcomingEntries.length === 0) return res.json({ films: [] });
-
-    // Pobierz szczegóły filmów
-    const details = [];
-    const CONC = 6;
-    for (let i = 0; i < upcomingEntries.length; i += CONC) {
-      const batch = upcomingEntries.slice(i, i + CONC);
-      const results = await Promise.all(
-        batch.map(async ({ id, date }) => {
-          const film = await fetchFilmDetailsFw(id);
-          if (film) film.releaseDate = date;
-          return film;
-        })
-      );
-      details.push(...results.filter(Boolean));
-    }
-
-    const films = details.sort((a, b) => (a.releaseDate ?? '9999').localeCompare(b.releaseDate ?? '9999'));
+    const seen = new Set();
+    const films = [...(d1.results ?? []), ...(d2.results ?? []), ...(d3.results ?? [])]
+      .filter(f => {
+        if (!f?.id || seen.has(f.id)) return false;
+        seen.add(f.id);
+        return true;
+      })
+      .map(f => ({
+        id: f.id,
+        title: f.title || f.original_title || '',
+        originalTitle: (f.original_title && f.original_title !== f.title) ? f.original_title : null,
+        synopsis: f.overview || null,
+        releaseDate: f.release_date || null,
+        year: f.release_date ? parseInt(f.release_date.slice(0, 4)) : null,
+        rating: f.vote_average > 0 ? Math.round(f.vote_average * 10) / 10 : null,
+        rateCount: f.vote_count ?? 0,
+        genres: [],
+        countries: [],
+        poster: f.poster_path ? `https://image.tmdb.org/t/p/w300${f.poster_path}` : null,
+        filmwebUrl: `https://www.themoviedb.org/movie/${f.id}`,
+        popularity: f.popularity ?? 0,
+      }))
+      .filter(f => f.title)
+      .sort((a, b) => {
+        const da = a.releaseDate ? new Date(a.releaseDate).getTime() : 9e15;
+        const db = b.releaseDate ? new Date(b.releaseDate).getTime() : 9e15;
+        if (da !== db) return da - db;
+        return b.popularity - a.popularity;
+      })
+      .slice(0, 40);
 
     upcomingCache.set(CACHE_KEY, { data: films, fetchedAt: Date.now() });
     res.json({ films });
   } catch (err) {
-    console.error('[upcoming]', err.message);
+    console.error('[tmdb]', err.message);
     res.status(502).json({ films: [] });
   }
 });

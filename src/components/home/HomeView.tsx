@@ -417,15 +417,15 @@ function UpcomingDetailModal({ film, onClose }: { film: TmdbMovie; onClose: () =
             </div>
           )}
 
-          {/* Link do Filmweb */}
+          {/* Link do TMDB */}
           <div className="px-5 pb-6">
             <a
               href={film.filmwebUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center justify-center gap-2 w-full py-3 rounded-2xl border-2 border-primary-600 text-primary-600 font-bold text-sm transition-colors hover:bg-primary-50 dark:hover:bg-primary-900/20"
+              className="flex items-center justify-center gap-2 w-full py-3 rounded-2xl border-2 border-violet-600 text-violet-600 font-bold text-sm transition-colors hover:bg-violet-50 dark:hover:bg-violet-900/20"
             >
-              Zobacz na Filmweb
+              Więcej informacji (TMDB)
             </a>
           </div>
         </div>
