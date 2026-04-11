@@ -334,6 +334,9 @@ function UpcomingCard({ film, onSelect }: { film: TmdbMovie; onSelect: (f: TmdbM
 function UpcomingDetailModal({ film, onClose }: { film: TmdbMovie; onClose: () => void }) {
   const [visible, setVisible] = useState(false);
   const [closing, setClosing] = useState(false);
+  const [fwUrl, setFwUrl] = useState<string | null>(null);
+  const [fwLoading, setFwLoading] = useState(true);
+
   useEffect(() => {
     const f1 = requestAnimationFrame(() => {
       const f2 = requestAnimationFrame(() => setVisible(true));
@@ -341,6 +344,27 @@ function UpcomingDetailModal({ film, onClose }: { film: TmdbMovie; onClose: () =
     });
     return () => cancelAnimationFrame(f1);
   }, []);
+
+  // Wyszukaj prawdziwy link Filmweb po tytule
+  useEffect(() => {
+    let cancelled = false;
+    const title = film.originalTitle || film.title;
+    fetch(`/api/filmweb/search?title=${encodeURIComponent(title)}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(json => {
+        if (cancelled) return;
+        const d = json?.result;
+        if (d?.id && d?.title) {
+          const type = d.type?.toLowerCase().includes('serial') ? 'serial' : 'film';
+          const slug = d.title.replace(/ /g, '+');
+          setFwUrl(`https://www.filmweb.pl/${type}/${slug}-${d.year ?? film.year}-${d.id}`);
+        }
+        setFwLoading(false);
+      })
+      .catch(() => { if (!cancelled) setFwLoading(false); });
+    return () => { cancelled = true; };
+  }, [film.title, film.originalTitle, film.year]);
+
   const handleClose = () => { setClosing(true); setTimeout(onClose, 320); };
   const sheetVisible = visible && !closing;
 
@@ -443,13 +467,14 @@ function UpcomingDetailModal({ film, onClose }: { film: TmdbMovie; onClose: () =
           {/* Przyciski */}
           <div className="px-5 pb-6 flex flex-col gap-3">
             <a
-              href={film.filmwebUrl}
-              target="_blank"
+              href={fwUrl ?? '#'}
+              onClick={!fwUrl ? (e) => e.preventDefault() : undefined}
+              target={fwUrl ? '_blank' : undefined}
               rel="noopener noreferrer"
-              className="flex items-center justify-center gap-2 w-full py-3 rounded-2xl bg-gradient-to-r from-[#FFCD05] to-[#D89124] text-gray-900 font-bold text-sm shadow-sm active:scale-95 transition-all"
+              className={`flex items-center justify-center gap-2 w-full py-3 rounded-2xl bg-gradient-to-r from-[#FFCD05] to-[#D89124] text-gray-900 font-bold text-sm shadow-sm active:scale-95 transition-all ${!fwUrl ? 'opacity-60 cursor-default' : ''}`}
             >
               <img src="/filmweb-logo.svg" alt="Filmweb" className="w-5 h-5" />
-              Szukaj na Filmweb
+              {fwLoading ? 'Szukam na Filmweb…' : fwUrl ? 'Zobacz na Filmweb' : 'Brak na Filmweb'}
             </a>
             <a
               href={`https://www.themoviedb.org/movie/${film.id}`}
