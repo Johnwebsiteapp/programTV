@@ -34,6 +34,7 @@ export interface TmdbMovie {
   poster: string | null;
   filmwebUrl: string;
   popularity?: number;
+  isPolish?: boolean;        // true jeśli produkcja polska (original_language === 'pl')
 }
 
 export async function getUpcomingMovies(): Promise<TmdbMovie[]> {
@@ -75,11 +76,16 @@ export async function getUpcomingMovies(): Promise<TmdbMovie[]> {
         genres: [],
         countries: [],
         poster: f.poster_path ? `https://image.tmdb.org/t/p/w300${f.poster_path}` : null,
-        filmwebUrl: `https://www.themoviedb.org/movie/${f.id}`,
+        filmwebUrl: `https://www.filmweb.pl/search?q=${encodeURIComponent(f.title || f.original_title || '')}`,
         popularity: f.popularity ?? 0,
+        isPolish: f.original_language === 'pl',
       }))
       .filter((f: TmdbMovie) => !!f.title)
       .sort((a: TmdbMovie, b: TmdbMovie) => {
+        // Polskie na górze
+        if (a.isPolish && !b.isPolish) return -1;
+        if (!a.isPolish && b.isPolish) return 1;
+        // W obrębie grupy: po dacie premiery, potem popularności
         const da = a.releaseDate ? new Date(a.releaseDate).getTime() : 9e15;
         const db = b.releaseDate ? new Date(b.releaseDate).getTime() : 9e15;
         if (da !== db) return da - db;

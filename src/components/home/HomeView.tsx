@@ -175,13 +175,36 @@ export function HomeView() {
           </div>
         ) : upcomingMovies.length === 0 ? (
           <p className="text-sm text-gray-400 py-4 text-center">Brak zapowiedzi</p>
-        ) : (
-          <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-hide">
-            {upcomingMovies.map(film => (
-              <UpcomingCard key={film.id} film={film} onSelect={setSelectedUpcoming} />
-            ))}
-          </div>
-        )}
+        ) : (() => {
+          const polish  = upcomingMovies.filter(f => f.isPolish);
+          const foreign = upcomingMovies.filter(f => !f.isPolish);
+          return (
+            <div className="space-y-4">
+              {polish.length > 0 && (
+                <div>
+                  <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">🇵🇱 Polskie</p>
+                  <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-hide">
+                    {polish.map(film => (
+                      <UpcomingCard key={film.id} film={film} onSelect={setSelectedUpcoming} />
+                    ))}
+                  </div>
+                </div>
+              )}
+              {foreign.length > 0 && (
+                <div>
+                  {polish.length > 0 && (
+                    <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">🌍 Zagraniczne</p>
+                  )}
+                  <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-hide">
+                    {foreign.map(film => (
+                      <UpcomingCard key={film.id} film={film} onSelect={setSelectedUpcoming} />
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })()}
       </section>
 
       {/* Padding na dole dla nawigacji */}
@@ -417,15 +440,24 @@ function UpcomingDetailModal({ film, onClose }: { film: TmdbMovie; onClose: () =
             </div>
           )}
 
-          {/* Link do TMDB */}
-          <div className="px-5 pb-6">
+          {/* Przyciski */}
+          <div className="px-5 pb-6 flex flex-col gap-3">
             <a
               href={film.filmwebUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center justify-center gap-2 w-full py-3 rounded-2xl border-2 border-violet-600 text-violet-600 font-bold text-sm transition-colors hover:bg-violet-50 dark:hover:bg-violet-900/20"
+              className="flex items-center justify-center gap-2 w-full py-3 rounded-2xl bg-gradient-to-r from-[#FFCD05] to-[#D89124] text-gray-900 font-bold text-sm shadow-sm active:scale-95 transition-all"
             >
-              Więcej informacji (TMDB)
+              <img src="/filmweb-logo.svg" alt="Filmweb" className="w-5 h-5" />
+              Szukaj na Filmweb
+            </a>
+            <a
+              href={`https://www.themoviedb.org/movie/${film.id}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-center gap-2 w-full py-3 rounded-2xl border-2 border-slate-300 dark:border-slate-600 text-gray-600 dark:text-gray-400 font-semibold text-sm transition-colors hover:bg-gray-50 dark:hover:bg-slate-800"
+            >
+              Więcej na TMDB
             </a>
           </div>
         </div>
