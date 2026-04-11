@@ -5,7 +5,8 @@
     "api/filmweb/cinema.js": { "maxDuration": 60 },
     "api/filmweb/search.js": { "maxDuration": 15 },
     "api/ai-chat.js": { "maxDuration": 30 },
-    "api/tmdb/upcoming.js": { "maxDuration": 20 }
+    "api/tmdb/upcoming.js": { "maxDuration": 20 },
+    "api/tmdb/movies.js": { "maxDuration": 20 }
   },
   "buildCommand": "npm run build",
   "outputDirectory": "dist"

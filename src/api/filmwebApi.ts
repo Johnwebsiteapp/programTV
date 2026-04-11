@@ -37,7 +37,7 @@ export interface TmdbMovie {
 
 export async function getUpcomingMovies(): Promise<TmdbMovie[]> {
   try {
-    const res = await fetch('/api/tmdb/upcoming', {
+    const res = await fetch('/api/tmdb/movies', {
       signal: AbortSignal.timeout(20000),
     });
     if (!res.ok) return [];
