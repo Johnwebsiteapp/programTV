@@ -765,7 +765,7 @@ function SuggestionsPanel({ suggestions, onSelect, onSave }: {
               onChange={e => setDraftQuery(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') handleQueryNext(); if (e.key === 'Escape') cancel(); }}
               placeholder="Np. filmy akcji z oceną powyżej 7 od 2020..."
-              maxLength={200}
+              maxLength={500}
               className="flex-1 text-sm px-3.5 py-2.5 rounded-xl border-2 border-violet-400 bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 outline-none"
             />
             <button
