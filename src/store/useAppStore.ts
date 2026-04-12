@@ -15,6 +15,13 @@ import {
 import { CHANNELS } from '../data/channels';
 import { fetchPrograms } from '../api/tvGuideApi';
 
+// ─── TYPY ─────────────────────────────────────────────────
+
+export interface ChatShortcut {
+  label: string;   // tekst wyświetlany na przycisku
+  query: string;   // zapytanie wysyłane do AI
+}
+
 // ─── TYPY STANU ───────────────────────────────────────────
 
 interface AppState {
@@ -39,7 +46,7 @@ interface AppState {
 
   // ── DANE UŻYTKOWNIKA (persystowane) ──────────────────
   nickname: string;                // Pseudonim użytkownika
-  chatSuggestions: string[];       // Własne podpowiedzi w asystencie AI
+  chatSuggestions: ChatShortcut[]; // Własne podpowiedzi w asystencie AI
   favorites: Favorite[];           // Ulubione programy
   notifications: Notification[];   // Zaplanowane powiadomienia
   categories: Category[];          // Niestandardowe kategorie
@@ -85,7 +92,7 @@ interface AppState {
   setNickname: (name: string) => void;
 
   // Chat suggestions
-  setChatSuggestions: (suggestions: string[]) => void;
+  setChatSuggestions: (suggestions: ChatShortcut[]) => void;
 
   // Kategorie
   addCategory: (name: string, color: string, rules: Omit<CategoryRule, 'id'>[], logic: 'AND' | 'OR') => void;

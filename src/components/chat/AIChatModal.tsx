@@ -4,7 +4,7 @@
 
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { X, Send, Bot, User, Star, Tv, Loader2, AlertCircle, ExternalLink, ChevronDown, ChevronUp, Clock, Plus, Trash2, Check } from 'lucide-react';
-import { useAppStore } from '../../store/useAppStore';
+import { useAppStore, ChatShortcut } from '../../store/useAppStore';
 import { batchSearchFilmweb, FilmwebData } from '../../api/filmwebApi';
 import { sendChatMessage, ChatMessage, ChatFilters } from '../../api/chatApi';
 import type { Program, Channel } from '../../types';
@@ -592,35 +592,54 @@ function SearchResults({ results, onOpen }: {
 
 // ── Panel własnych podpowiedzi ────────────────────────────
 
+// Konwertuj stare skróty (string) na nowy format — wsteczna kompatybilność
+function normalizeShortcut(s: ChatShortcut | string): ChatShortcut {
+  if (typeof s === 'string') return { label: s, query: s };
+  return s;
+}
+
+type AddStep = 'query' | 'label';
+
 function SuggestionsPanel({ suggestions, onSelect, onSave }: {
-  suggestions: string[];
-  onSelect: (s: string) => void;
-  onSave: (s: string[]) => void;
+  suggestions: (ChatShortcut | string)[];
+  onSelect: (query: string) => void;
+  onSave: (s: ChatShortcut[]) => void;
 }) {
-  const [adding, setAdding] = useState(false);
-  const [draft, setDraft] = useState('');
+  const normalized = suggestions.map(normalizeShortcut);
+  const [step, setStep] = useState<AddStep | null>(null);
+  const [draftQuery, setDraftQuery] = useState('');
+  const [draftLabel, setDraftLabel] = useState('');
   const [editMode, setEditMode] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const handleAdd = () => {
-    const trimmed = draft.trim();
-    if (!trimmed) { setAdding(false); return; }
-    onSave([...suggestions, trimmed]);
-    setDraft('');
-    setAdding(false);
+  const startAdding = () => { setStep('query'); setDraftQuery(''); setDraftLabel(''); setEditMode(false); };
+  const cancel = () => { setStep(null); setDraftQuery(''); setDraftLabel(''); };
+
+  const handleQueryNext = () => {
+    if (!draftQuery.trim()) { cancel(); return; }
+    setStep('label');
+    setTimeout(() => inputRef.current?.focus(), 50);
+  };
+
+  const handleLabelSave = () => {
+    const query = draftQuery.trim();
+    const label = draftLabel.trim() || query;
+    if (!query) { cancel(); return; }
+    onSave([...normalized, { label, query }]);
+    cancel();
   };
 
   const handleDelete = (idx: number) => {
-    onSave(suggestions.filter((_, i) => i !== idx));
+    onSave(normalized.filter((_, i) => i !== idx));
   };
 
   return (
     <div className="flex flex-col gap-2 pt-1">
       <div className="flex items-center justify-between px-1">
         <p className="text-[11px] text-gray-400 dark:text-gray-500 font-medium">
-          {suggestions.length > 0 ? 'Twoje skróty:' : 'Dodaj własne skróty zapytań:'}
+          {normalized.length > 0 ? 'Twoje skróty:' : 'Dodaj własne skróty zapytań:'}
         </p>
-        {suggestions.length > 0 && (
+        {normalized.length > 0 && (
           <button
             onClick={() => setEditMode(e => !e)}
             className={clsx(
@@ -635,10 +654,10 @@ function SuggestionsPanel({ suggestions, onSelect, onSave }: {
         )}
       </div>
 
-      {suggestions.map((s, idx) => (
+      {normalized.map((s, idx) => (
         <div key={idx} className="flex items-center gap-2">
           <button
-            onClick={() => !editMode && onSelect(s)}
+            onClick={() => !editMode && onSelect(s.query)}
             className={clsx(
               'flex-1 text-left text-sm px-3.5 py-2.5 rounded-2xl rounded-tl-sm border transition-colors',
               editMode
@@ -646,7 +665,7 @@ function SuggestionsPanel({ suggestions, onSelect, onSave }: {
                 : 'bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-slate-700 hover:bg-violet-50 dark:hover:bg-violet-900/20 hover:text-violet-700 dark:hover:text-violet-300 hover:border-violet-300 dark:hover:border-violet-700'
             )}
           >
-            {s}
+            {s.label}
           </button>
           {editMode && (
             <button
@@ -659,28 +678,59 @@ function SuggestionsPanel({ suggestions, onSelect, onSave }: {
         </div>
       ))}
 
-      {adding ? (
-        <div className="flex items-center gap-2">
-          <input
-            ref={inputRef}
-            autoFocus
-            value={draft}
-            onChange={e => setDraft(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') handleAdd(); if (e.key === 'Escape') { setAdding(false); setDraft(''); } }}
-            placeholder="Np. filmy SF od 2020..."
-            maxLength={200}
-            className="flex-1 text-sm px-3.5 py-2.5 rounded-2xl border-2 border-violet-500 bg-gray-50 dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 outline-none"
-          />
-          <button
-            onClick={handleAdd}
-            className="w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-full bg-violet-600 text-white hover:bg-violet-700 transition-colors"
-          >
-            <Check size={16} />
-          </button>
+      {/* Krok 1 — wpisz zapytanie */}
+      {step === 'query' && (
+        <div className="flex flex-col gap-2 bg-violet-50 dark:bg-violet-900/20 rounded-2xl p-3 border border-violet-200 dark:border-violet-800">
+          <p className="text-xs font-semibold text-violet-700 dark:text-violet-300">Krok 1 z 2 — Wpisz zapytanie do AI:</p>
+          <div className="flex items-center gap-2">
+            <input
+              autoFocus
+              value={draftQuery}
+              onChange={e => setDraftQuery(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') handleQueryNext(); if (e.key === 'Escape') cancel(); }}
+              placeholder="Np. filmy akcji z oceną powyżej 7 od 2020..."
+              maxLength={200}
+              className="flex-1 text-sm px-3.5 py-2.5 rounded-xl border-2 border-violet-400 bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 outline-none"
+            />
+            <button
+              onClick={handleQueryNext}
+              disabled={!draftQuery.trim()}
+              className="px-3 py-2.5 rounded-xl bg-violet-600 text-white text-sm font-semibold disabled:opacity-40 transition-all"
+            >
+              Dalej →
+            </button>
+          </div>
         </div>
-      ) : (
+      )}
+
+      {/* Krok 2 — wpisz nazwę skrótu */}
+      {step === 'label' && (
+        <div className="flex flex-col gap-2 bg-violet-50 dark:bg-violet-900/20 rounded-2xl p-3 border border-violet-200 dark:border-violet-800">
+          <p className="text-xs font-semibold text-violet-700 dark:text-violet-300">Krok 2 z 2 — Jak nazwać ten skrót?</p>
+          <p className="text-[11px] text-gray-500 dark:text-gray-400 -mt-1">Ta nazwa będzie widoczna na przycisku. Zostaw puste żeby użyć zapytania.</p>
+          <div className="flex items-center gap-2">
+            <input
+              ref={inputRef}
+              value={draftLabel}
+              onChange={e => setDraftLabel(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') handleLabelSave(); if (e.key === 'Escape') cancel(); }}
+              placeholder="Np. Sprawdź program 1"
+              maxLength={60}
+              className="flex-1 text-sm px-3.5 py-2.5 rounded-xl border-2 border-violet-400 bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 outline-none"
+            />
+            <button
+              onClick={handleLabelSave}
+              className="w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-full bg-violet-600 text-white hover:bg-violet-700 transition-colors"
+            >
+              <Check size={16} />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {step === null && (
         <button
-          onClick={() => { setAdding(true); setEditMode(false); }}
+          onClick={startAdding}
           className="flex items-center gap-2 px-3.5 py-2.5 rounded-2xl border-2 border-dashed border-gray-300 dark:border-slate-600 text-gray-400 dark:text-gray-500 hover:border-violet-400 hover:text-violet-500 transition-colors text-sm"
         >
           <Plus size={15} />
