@@ -438,7 +438,7 @@ async function searchFilmweb(title) {
 app.get('/api/filmweb/cinema', async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
 
-  const CINEMA_CACHE_KEY = '__cinema_v3__';
+  const CINEMA_CACHE_KEY = '__cinema_v4__';
   const CINEMA_CACHE_TTL = 6 * 60 * 60 * 1000;
   const cached = filmwebCache.get(CINEMA_CACHE_KEY);
   if (cached && Date.now() - cached.fetchedAt < CINEMA_CACHE_TTL) {
@@ -455,7 +455,9 @@ app.get('/api/filmweb/cinema', async (req, res) => {
 
     const showtimesJson = await showtimesRes.json();
     const seanceCounts = showtimesJson.filmSeanceCounts ?? {};
-    const filmIds = Object.keys(showtimesJson.filmDates ?? {})
+    // Używamy klucza "films" — to Filmweb's własna lista "teraz w kinach"
+    // (bardziej aktualna niż filmDates, która zawiera też przyszłe premiery)
+    const filmIds = (showtimesJson.films ?? Object.keys(showtimesJson.filmDates ?? {}))
       .map(Number)
       .sort((a, b) => (seanceCounts[b] ?? 0) - (seanceCounts[a] ?? 0))
       .slice(0, 60);
@@ -504,9 +506,8 @@ app.get('/api/filmweb/cinema', async (req, res) => {
       details.push(...batchResults.filter(Boolean));
     }
 
-    const currentYear = new Date().getFullYear();
+    // Bez filtra roku — jeśli Filmweb umieścił film w "films", to gra w kinach
     const films = details
-      .filter(f => f.year != null && f.year >= currentYear)
       .sort((a, b) => (b.rate ?? 0) - (a.rate ?? 0));
 
     filmwebCache.set(CINEMA_CACHE_KEY, { data: films, fetchedAt: Date.now() });
