@@ -130,7 +130,7 @@ export function HomeView() {
       <section className="px-4 mb-5">
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-base font-bold text-gray-900 dark:text-white">🎬 Teraz w kinach</h2>
-          <span className="text-xs text-gray-400">Filmweb</span>
+          <span className="text-xs text-gray-400">TMDB</span>
         </div>
 
         {cinemaLoading ? (
@@ -145,7 +145,7 @@ export function HomeView() {
             ))}
           </div>
         ) : cinemaMovies.length === 0 ? (
-          <p className="text-sm text-gray-400 py-4 text-center">Brak danych z Filmweb</p>
+          <p className="text-sm text-gray-400 py-4 text-center">Brak danych z TMDB</p>
         ) : (
           <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-hide">
             {cinemaMovies.map(film => (
