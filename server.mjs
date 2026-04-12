@@ -438,7 +438,7 @@ async function searchFilmweb(title) {
 app.get('/api/filmweb/cinema', async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
 
-  const CINEMA_CACHE_KEY = '__cinema_v5__';
+  const CINEMA_CACHE_KEY = '__cinema_v6__';
   const CINEMA_CACHE_TTL = 6 * 60 * 60 * 1000;
   const cached = filmwebCache.get(CINEMA_CACHE_KEY);
   if (cached && Date.now() - cached.fetchedAt < CINEMA_CACHE_TTL) {
@@ -447,24 +447,22 @@ app.get('/api/filmweb/cinema', async (req, res) => {
 
   try {
     const today = new Date().toISOString().split('T')[0];
+    // cinemaId=628 = Cinema City Sosnowiec — pobieramy repertuar konkretnego kina
     const showtimesRes = await fetch(
-      `https://www.filmweb.pl/api/v1/showtimes?date=${today}`,
+      `https://www.filmweb.pl/api/v1/showtimes?date=${today}&cinemaId=628`,
       { headers: FILMWEB_HEADERS, timeout: 10000 }
     );
     if (!showtimesRes.ok) return res.status(502).json({ films: [] });
 
     const showtimesJson = await showtimesRes.json();
-    const seanceCounts = showtimesJson.filmSeanceCounts ?? {};
     const premiereIds  = new Set((showtimesJson.premieres ?? []).map(Number));
-    const allFilmIds   = (showtimesJson.films ?? Object.keys(showtimesJson.filmDates ?? {})).map(Number);
+    const allFilmIds   = (showtimesJson.films ?? []).map(Number);
 
-    // Premiery idą pierwsze (najnowsze wejścia kinowe), reszta wg liczby seansów
-    const premieresFirst = [
+    // Premiery idą pierwsze, reszta w kolejności Filmweb
+    const filmIds = [
       ...allFilmIds.filter(id => premiereIds.has(id)),
-      ...allFilmIds.filter(id => !premiereIds.has(id))
-        .sort((a, b) => (seanceCounts[b] ?? 0) - (seanceCounts[a] ?? 0)),
-    ];
-    const filmIds = premieresFirst.slice(0, 60);
+      ...allFilmIds.filter(id => !premiereIds.has(id)),
+    ].slice(0, 50);
 
     const CONCURRENCY = 6;
     const details = [];
