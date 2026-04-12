@@ -118,6 +118,15 @@ async function runSearch(
       )) continue;
     }
 
+    // Wymagane kraje produkcji (np. tylko polskie)
+    if (filters.includedCountries?.length) {
+      if (!fw?.countries?.length) continue; // brak danych o kraju → odrzuć
+      const matches = filters.includedCountries.some(ic =>
+        fw.countries.some(c => c.toLowerCase().includes(ic.toLowerCase()))
+      );
+      if (!matches) continue;
+    }
+
     // Wykluczone kraje
     if (filters.excludedCountries?.length && fw?.countries?.length) {
       if (filters.excludedCountries.some(ec =>

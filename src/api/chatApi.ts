@@ -8,6 +8,7 @@ export interface ChatFilters {
   minRating: number;
   includedGenres: string[];
   excludedGenres: string[];
+  includedCountries: string[];
   excludedCountries: string[];
   selectedDays: string[] | null;
   weekOffset: number;
