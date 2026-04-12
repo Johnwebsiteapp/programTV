@@ -334,6 +334,10 @@ export const useAppStore = create<AppState>()(
       onRehydrateStorage: () => (state) => {
         if (!state) return;
 
+        // Usuń kanały których już nie ma w CHANNELS (zostały skasowane)
+        const validIds = new Set(CHANNELS.map(ch => ch.id));
+        state.channels = state.channels.filter(ch => validIds.has(ch.id));
+
         // Dołącz nowe kanały z CHANNELS których jeszcze nie ma w zapisanym stanie
         const savedIds = new Set(state.channels.map(ch => ch.id));
         const newChannels = CHANNELS.filter(ch => !savedIds.has(ch.id));
