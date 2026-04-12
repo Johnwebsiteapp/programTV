@@ -103,14 +103,45 @@ export interface FilmwebBatchResult {
 
 // ─── Filmy aktualnie w kinach w Polsce ───────────────────
 
-export async function getCinemaMovies(): Promise<FilmwebData[]> {
+const TMDB_KEY = 'e21080713ee1e49ed939be3b37d36943';
+const TMDB_BASE = 'https://api.themoviedb.org/3';
+
+const TMDB_GENRES: Record<number, string> = {
+  28: 'akcja', 12: 'przygodowy', 16: 'animacja', 35: 'komedia',
+  80: 'kryminał', 99: 'dokumentalny', 18: 'dramat', 10751: 'familijny',
+  14: 'fantasy', 36: 'historyczny', 27: 'horror', 10402: 'muzyczny',
+  9648: 'tajemnica', 10749: 'romans', 878: 'sci-fi', 53: 'thriller',
+  10752: 'wojenny', 37: 'western',
+};
+
+export async function getCinemaMovies(): Promise<TmdbMovie[]> {
   try {
-    const res = await fetch('/api/filmweb/cinema', {
-      signal: AbortSignal.timeout(30000),
-    });
-    if (!res.ok) return [];
-    const json = await res.json();
-    return json.films ?? [];
+    const [r1, r2] = await Promise.all([
+      fetch(`${TMDB_BASE}/movie/now_playing?api_key=${TMDB_KEY}&language=pl-PL&region=PL&page=1`, { signal: AbortSignal.timeout(10000) }),
+      fetch(`${TMDB_BASE}/movie/now_playing?api_key=${TMDB_KEY}&language=pl-PL&region=PL&page=2`, { signal: AbortSignal.timeout(10000) }),
+    ]);
+    const [d1, d2] = await Promise.all([r1.json(), r2.json()]);
+    const all = [...(d1.results ?? []), ...(d2.results ?? [])];
+    const seen = new Set<number>();
+    return all
+      .filter(f => { if (seen.has(f.id)) return false; seen.add(f.id); return true; })
+      .map(f => ({
+        id: f.id,
+        title: f.title || f.original_title || '',
+        originalTitle: f.original_title !== f.title ? (f.original_title ?? null) : null,
+        synopsis: f.overview || null,
+        releaseDate: f.release_date || null,
+        year: f.release_date ? new Date(f.release_date).getFullYear() : null,
+        rating: f.vote_average ? Math.round(f.vote_average * 10) / 10 : null,
+        rateCount: f.vote_count ?? 0,
+        genres: (f.genre_ids ?? []).map((id: number) => TMDB_GENRES[id]).filter(Boolean),
+        countries: [],
+        poster: f.poster_path ? `https://image.tmdb.org/t/p/w300${f.poster_path}` : null,
+        filmwebUrl: `https://www.themoviedb.org/movie/${f.id}`,
+        popularity: f.popularity ?? 0,
+        isPolish: f.original_language === 'pl',
+      }))
+      .sort((a, b) => (b.popularity ?? 0) - (a.popularity ?? 0));
   } catch {
     return [];
   }

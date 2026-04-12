@@ -5,7 +5,7 @@
 import { useMemo, useState, useEffect } from 'react';
 import { Bell, ChevronRight, Sparkles, Film, Star, X, Globe, Tag, Calendar, Bot } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
-import { getCinemaMovies, FilmwebData, getUpcomingMovies, TmdbMovie } from '../../api/filmwebApi';
+import { getCinemaMovies, getUpcomingMovies, TmdbMovie } from '../../api/filmwebApi';
 import clsx from 'clsx';
 
 // Mapowanie gatunków na emoji/kolory kategorii
@@ -34,9 +34,9 @@ function formatTime(date: Date): string {
 
 export function HomeView() {
   const { channels, programs, nickname, setActiveView, setSelectedProgram, setSelectedChannel, addNotification, hasNotification, setShowSmartFilter, setShowAIChat } = useAppStore();
-  const [cinemaMovies, setCinemaMovies] = useState<FilmwebData[]>([]);
+  const [cinemaMovies, setCinemaMovies] = useState<TmdbMovie[]>([]);
   const [cinemaLoading, setCinemaLoading] = useState(true);
-  const [selectedCinemaFilm, setSelectedCinemaFilm] = useState<FilmwebData | null>(null);
+  const [selectedCinemaFilm, setSelectedCinemaFilm] = useState<TmdbMovie | null>(null);
 
   const [upcomingMovies, setUpcomingMovies] = useState<TmdbMovie[]>([]);
   const [upcomingLoading, setUpcomingLoading] = useState(true);
@@ -235,19 +235,16 @@ function posterUrl(poster: string | null) {
   return `${FILMWEB_POSTER_BASE}${fixed}`;
 }
 
-function CinemaCard({ film, onSelect }: { film: FilmwebData; onSelect: (f: FilmwebData) => void }) {
-  const url = posterUrl(film.poster);
-
+function CinemaCard({ film, onSelect }: { film: TmdbMovie; onSelect: (f: TmdbMovie) => void }) {
   return (
     <button
       onClick={() => onSelect(film)}
       className="flex-shrink-0 w-28 text-left group"
     >
-      {/* Poster */}
       <div className="w-28 h-40 rounded-2xl overflow-hidden bg-gray-100 dark:bg-slate-700 relative mb-2 shadow-sm">
-        {url ? (
+        {film.poster ? (
           <img
-            src={url}
+            src={film.poster}
             alt={film.title}
             className="w-full h-full object-cover"
             loading="lazy"
@@ -258,10 +255,10 @@ function CinemaCard({ film, onSelect }: { film: FilmwebData; onSelect: (f: Filmw
             <Film size={32} className="text-gray-300 dark:text-slate-500" />
           </div>
         )}
-        {film.rate != null && (
+        {film.rating != null && (
           <div className="absolute bottom-1.5 left-1.5 flex items-center gap-0.5 bg-black/70 rounded-lg px-1.5 py-0.5">
             <Star size={9} className="fill-amber-400 text-amber-400" />
-            <span className="text-white text-[10px] font-bold">{film.rate.toFixed(1)}</span>
+            <span className="text-white text-[10px] font-bold">{film.rating.toFixed(1)}</span>
           </div>
         )}
       </div>
@@ -494,14 +491,7 @@ function UpcomingDetailModal({ film, onClose }: { film: TmdbMovie; onClose: () =
 
 // ── Modal szczegółów filmu kinowego ───────────────────────
 
-function filmwebLink(film: FilmwebData): string {
-  const type = film.type?.toLowerCase().includes('serial') ? 'serial' : 'film';
-  const slug = film.title.replace(/ /g, '+');
-  return `https://www.filmweb.pl/${type}/${slug}-${film.year}-${film.id}`;
-}
-
-function CinemaDetailModal({ film, onClose }: { film: FilmwebData; onClose: () => void }) {
-  const url = posterUrl(film.poster);
+function CinemaDetailModal({ film, onClose }: { film: TmdbMovie; onClose: () => void }) {
 
   // Animacja wejścia/wyjścia
   const [visible, setVisible] = useState(false);
@@ -561,9 +551,9 @@ function CinemaDetailModal({ film, onClose }: { film: FilmwebData; onClose: () =
         <div className="flex-1 overflow-y-auto min-h-0" style={{ WebkitOverflowScrolling: 'touch' } as React.CSSProperties}>
           {/* Hero: poster + tytuł */}
           <div className="flex gap-4 px-5 pt-4 pb-4">
-            {url ? (
+            {film.poster ? (
               <img
-                src={url}
+                src={film.poster}
                 alt={film.title}
                 className="w-24 h-36 object-cover rounded-2xl flex-shrink-0 shadow-md"
               />
@@ -581,10 +571,10 @@ function CinemaDetailModal({ film, onClose }: { film: FilmwebData; onClose: () =
               )}
 
               {/* Ocena */}
-              {film.rate != null && (
+              {film.rating != null && (
                 <div className="flex items-center gap-1 mt-2">
                   <Star size={14} className="fill-amber-400 text-amber-400" />
-                  <span className="text-lg font-bold text-gray-900 dark:text-white">{film.rate.toFixed(1)}</span>
+                  <span className="text-lg font-bold text-gray-900 dark:text-white">{film.rating.toFixed(1)}</span>
                   <span className="text-xs text-gray-400">/ 10</span>
                   {film.rateCount > 0 && (
                     <span className="text-xs text-gray-400 ml-1">({film.rateCount.toLocaleString('pl-PL')} ocen)</span>
@@ -635,15 +625,15 @@ function CinemaDetailModal({ film, onClose }: { film: FilmwebData; onClose: () =
             </div>
           )}
 
-          {/* Link do Filmweb */}
+          {/* Link do TMDB */}
           <div className="px-5 pb-6">
             <a
-              href={filmwebLink(film)}
+              href={`https://www.themoviedb.org/movie/${film.id}`}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center justify-center gap-2 w-full py-3 rounded-2xl border-2 border-primary-600 text-primary-600 font-bold text-sm transition-colors hover:bg-primary-50 dark:hover:bg-primary-900/20"
             >
-              Zobacz na Filmweb
+              Zobacz na TMDB
             </a>
           </div>
         </div>
