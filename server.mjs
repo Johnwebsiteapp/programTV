@@ -259,8 +259,8 @@ app.get('/api/epg', async (req, res) => {
 // ─── ENDPOINT /api/epg/bulk ──────────────────────────────
 // Pobiera dane dla WSZYSTKICH zmapowanych kanałów i podanych dni
 app.get('/api/epg/bulk', async (req, res) => {
-  // dayOffsets: np. "-1,0,1,2,3,4,5,6" (domyślnie wczoraj + 7 dni)
-  const dayOffsets = (req.query.days || '-1,0,1,2,3,4,5,6').split(',').map(Number).filter(n => !isNaN(n));
+  // dayOffsets: np. "-1,0,1,...,12" (domyślnie wczoraj + 12 dni)
+  const dayOffsets = (req.query.days || '-1,0,1,2,3,4,5,6,7,8,9,10,11,12').split(',').map(Number).filter(n => !isNaN(n));
 
   const allChannelIds = Object.keys(CHANNEL_ONET_SLUGS);
 
@@ -854,7 +854,7 @@ app.listen(PORT, () => {
   }, 500);
   console.log(`[EPG Server] Endpointy:`);
   console.log(`  GET /api/epg?channelId=tvp1,tvp2&dayOffset=0,1`);
-  console.log(`  GET /api/epg/bulk?days=-1,0,1,2,3,4,5,6`);
+  console.log(`  GET /api/epg/bulk?days=-1,0,1,2,3,4,5,6,7,8,9,10,11,12`);
   console.log(`  GET /api/filmweb/cinema`);
   console.log(`  GET /api/filmweb/search?title=Avatar`);
   console.log(`  POST /api/filmweb/batch  body: { titles: [] }`);

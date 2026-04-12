@@ -63,8 +63,8 @@ export async function fetchPrograms(
 ): Promise<Program[]> {
   // Przygotuj parametry
   const channelIds = channels.map(ch => ch.id).join(',');
-  // Dni: wczoraj (-1) + dziś (0) + 6 naprzód (1..6)
-  const dayOffsets = '-1,0,1,2,3,4,5,6';
+  // Dni: wczoraj (-1) + dziś (0) + 12 naprzód (1..12)
+  const dayOffsets = '-1,0,1,2,3,4,5,6,7,8,9,10,11,12';
 
   try {
     const response = await fetch(
