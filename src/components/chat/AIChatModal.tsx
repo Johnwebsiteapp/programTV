@@ -244,6 +244,11 @@ export function AIChatModal({ onClose }: Props) {
 
       // 2. Jeśli są filtry — uruchom wyszukiwanie
       if (filters) {
+        // Wymusz filtr polskich filmów gdy zapytanie zawiera "polsk"
+        if (text.toLowerCase().includes('polsk') && !filters.includedCountries?.length) {
+          filters.includedCountries = ['Polska'];
+        }
+
         updateMessage(assistantId, { searching: true, searchProgress: { done: 0, total: 0 } });
 
         const results = await runSearch(
@@ -283,6 +288,11 @@ export function AIChatModal({ onClose }: Props) {
       const { reply, filters } = await sendChatMessage(query, apiHistory());
       updateMessage(assistantId, { content: reply });
       if (filters) {
+        // Wymusz filtr polskich filmów gdy zapytanie zawiera "polsk"
+        if (query.toLowerCase().includes('polsk') && !filters.includedCountries?.length) {
+          filters.includedCountries = ['Polska'];
+        }
+
         updateMessage(assistantId, { searching: true, searchProgress: { done: 0, total: 0 } });
         const results = await runSearch(
           filters, programs, channels,
