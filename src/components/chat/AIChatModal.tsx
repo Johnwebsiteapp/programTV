@@ -73,6 +73,9 @@ async function runSearch(
 
   const visibleChannelIds = new Set(channels.filter(c => c.isVisible).map(c => c.id));
 
+  // Zabezpieczenie: jeśli AI nie zwróciło typów, szukaj filmów i seriali
+  const types = filters.types?.length ? filters.types : ['film', 'serial'];
+
   const candidates = programs.filter(p => {
     if (!visibleChannelIds.has(p.channelId)) return false;
     if (p.startTime < weekStart || p.startTime >= weekEnd) return false;
@@ -80,8 +83,8 @@ async function runSearch(
     if (filters.selectedDays?.length) {
       if (!filters.selectedDays.includes(getDayLabel(p.startTime))) return false;
     }
-    if (filters.types.includes('film') && p.genre === 'movie') return true;
-    if (filters.types.includes('serial') && p.genre === 'series') return true;
+    if (types.includes('film') && p.genre === 'movie') return true;
+    if (types.includes('serial') && p.genre === 'series') return true;
     return false;
   });
 
@@ -119,8 +122,8 @@ async function runSearch(
     }
 
     // Wymagane kraje produkcji (np. tylko polskie)
-    if (filters.includedCountries?.length) {
-      if (!fw?.countries?.length) continue; // brak danych o kraju → odrzuć
+    // Odrzucaj tylko gdy Filmweb MA dane o krajach i żaden nie pasuje
+    if (filters.includedCountries?.length && fw?.countries?.length) {
       const matches = filters.includedCountries.some(ic =>
         fw.countries.some(c => c.toLowerCase().includes(ic.toLowerCase()))
       );
