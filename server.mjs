@@ -506,7 +506,7 @@ app.get('/api/filmweb/cinema', async (req, res) => {
 
     const currentYear = new Date().getFullYear();
     const films = details
-      .filter(f => f.year != null && f.year >= currentYear - 1)
+      .filter(f => f.year != null && f.year >= currentYear)
       .sort((a, b) => (b.rate ?? 0) - (a.rate ?? 0));
 
     filmwebCache.set(CINEMA_CACHE_KEY, { data: films, fetchedAt: Date.now() });
