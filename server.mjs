@@ -438,7 +438,7 @@ async function searchFilmweb(title) {
 app.get('/api/filmweb/cinema', async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
 
-  const CINEMA_CACHE_KEY = '__cinema_v7__';
+  const CINEMA_CACHE_KEY = '__cinema_v8__';
   const CINEMA_CACHE_TTL = 6 * 60 * 60 * 1000;
   const cached = filmwebCache.get(CINEMA_CACHE_KEY);
   if (cached && Date.now() - cached.fetchedAt < CINEMA_CACHE_TTL) {
@@ -508,9 +508,9 @@ app.get('/api/filmweb/cinema', async (req, res) => {
       details.push(...batchResults.filter(Boolean));
     }
 
-    // Tylko filmy z bieżącego roku, premiery na górze, reszta po ocenie
+    // Tylko filmy z bieżącego roku — parseInt obsługuje zarówno string jak i number
     const currentYear = new Date().getFullYear();
-    const films = details.filter(f => f.year === currentYear).sort((a, b) => {
+    const films = details.filter(f => parseInt(f.year) === currentYear).sort((a, b) => {
       const aPrem = premiereIds.has(a.id) ? 1 : 0;
       const bPrem = premiereIds.has(b.id) ? 1 : 0;
       if (bPrem !== aPrem) return bPrem - aPrem;
