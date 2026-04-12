@@ -438,7 +438,7 @@ async function searchFilmweb(title) {
 app.get('/api/filmweb/cinema', async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
 
-  const CINEMA_CACHE_KEY = '__cinema_v4__';
+  const CINEMA_CACHE_KEY = '__cinema_v5__';
   const CINEMA_CACHE_TTL = 6 * 60 * 60 * 1000;
   const cached = filmwebCache.get(CINEMA_CACHE_KEY);
   if (cached && Date.now() - cached.fetchedAt < CINEMA_CACHE_TTL) {
@@ -455,12 +455,16 @@ app.get('/api/filmweb/cinema', async (req, res) => {
 
     const showtimesJson = await showtimesRes.json();
     const seanceCounts = showtimesJson.filmSeanceCounts ?? {};
-    // Używamy klucza "films" — to Filmweb's własna lista "teraz w kinach"
-    // (bardziej aktualna niż filmDates, która zawiera też przyszłe premiery)
-    const filmIds = (showtimesJson.films ?? Object.keys(showtimesJson.filmDates ?? {}))
-      .map(Number)
-      .sort((a, b) => (seanceCounts[b] ?? 0) - (seanceCounts[a] ?? 0))
-      .slice(0, 60);
+    const premiereIds  = new Set((showtimesJson.premieres ?? []).map(Number));
+    const allFilmIds   = (showtimesJson.films ?? Object.keys(showtimesJson.filmDates ?? {})).map(Number);
+
+    // Premiery idą pierwsze (najnowsze wejścia kinowe), reszta wg liczby seansów
+    const premieresFirst = [
+      ...allFilmIds.filter(id => premiereIds.has(id)),
+      ...allFilmIds.filter(id => !premiereIds.has(id))
+        .sort((a, b) => (seanceCounts[b] ?? 0) - (seanceCounts[a] ?? 0)),
+    ];
+    const filmIds = premieresFirst.slice(0, 60);
 
     const CONCURRENCY = 6;
     const details = [];
@@ -506,9 +510,13 @@ app.get('/api/filmweb/cinema', async (req, res) => {
       details.push(...batchResults.filter(Boolean));
     }
 
-    // Bez filtra roku — jeśli Filmweb umieścił film w "films", to gra w kinach
-    const films = details
-      .sort((a, b) => (b.rate ?? 0) - (a.rate ?? 0));
+    // Premiery na górze, reszta sortowana po ocenie
+    const films = details.sort((a, b) => {
+      const aPrem = premiereIds.has(a.id) ? 1 : 0;
+      const bPrem = premiereIds.has(b.id) ? 1 : 0;
+      if (bPrem !== aPrem) return bPrem - aPrem;
+      return (b.rate ?? 0) - (a.rate ?? 0);
+    });
 
     filmwebCache.set(CINEMA_CACHE_KEY, { data: films, fetchedAt: Date.now() });
     res.json({ films });
