@@ -89,16 +89,16 @@ async function runSearch(
   const filmwebMap = await batchSearchFilmweb(uniqueTitles, onProgress);
 
   const results: SearchResult[] = [];
-  const RATING_TOLERANCE = 0.6;
 
   for (const program of candidates) {
     const fw = filmwebMap[program.title] ?? null;
     const ch = channels.find(c => c.id === program.channelId);
     if (!ch) continue;
 
-    // Filtr oceny
-    if (filters.minRating > 0 && fw?.rate != null) {
-      if (fw.rate < filters.minRating - RATING_TOLERANCE) continue;
+    // Filtr oceny — jeśli minRating ustawiony, wymagaj oceny z Filmweb
+    if (filters.minRating > 0) {
+      if (fw?.rate == null) continue;          // brak oceny → odrzuć
+      if (fw.rate < filters.minRating) continue; // za niska ocena → odrzuć
     }
     // Filtr roku
     if (filters.minYear > 0 && fw?.year != null && fw.year < filters.minYear) continue;
