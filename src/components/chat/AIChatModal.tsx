@@ -668,7 +668,7 @@ function SuggestionsPanel({ suggestions, onSelect, onSave }: {
             onChange={e => setDraft(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter') handleAdd(); if (e.key === 'Escape') { setAdding(false); setDraft(''); } }}
             placeholder="Np. filmy SF od 2020..."
-            maxLength={80}
+            maxLength={200}
             className="flex-1 text-sm px-3.5 py-2.5 rounded-2xl border-2 border-violet-500 bg-gray-50 dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 outline-none"
           />
           <button
