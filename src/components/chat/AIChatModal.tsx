@@ -58,13 +58,18 @@ async function runSearch(
   filters: ChatFilters,
   programs: Program[],
   channels: Channel[],
-  onProgress: (done: number, total: number) => void
+  onProgress: (done: number, total: number) => void,
+  daysAhead?: number
 ): Promise<SearchResult[]> {
   const now = new Date();
   const todayStart = new Date();
   todayStart.setHours(0, 0, 0, 0);
-  const weekStart = new Date(todayStart.getTime() + (filters.weekOffset ?? 0) * 7 * 24 * 60 * 60 * 1000);
-  const weekEnd = new Date(weekStart.getTime() + 7 * 24 * 60 * 60 * 1000);
+  const weekStart = daysAhead !== undefined
+    ? todayStart
+    : new Date(todayStart.getTime() + (filters.weekOffset ?? 0) * 7 * 24 * 60 * 60 * 1000);
+  const weekEnd = daysAhead !== undefined
+    ? new Date(todayStart.getTime() + daysAhead * 24 * 60 * 60 * 1000)
+    : new Date(weekStart.getTime() + 7 * 24 * 60 * 60 * 1000);
 
   const visibleChannelIds = new Set(channels.filter(c => c.isVisible).map(c => c.id));
 
@@ -187,6 +192,8 @@ export function AIChatModal({ onClose }: Props) {
   }]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [pendingShortcutQuery, setPendingShortcutQuery] = useState<string | null>(null);
+  const [sliderDays, setSliderDays] = useState(7);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -252,6 +259,37 @@ export function AIChatModal({ onClose }: Props) {
     }
   };
 
+  const handleSendShortcut = async (query: string, days: number) => {
+    setPendingShortcutQuery(null);
+    if (!query || loading) return;
+    setLoading(true);
+
+    const label = days === 1 ? '1 dzień' : `${days} dni`;
+    const userMsg: Message = { id: crypto.randomUUID(), role: 'user', content: `${query} (${label} w przód)` };
+    const assistantId = crypto.randomUUID();
+    const assistantMsg: Message = { id: assistantId, role: 'assistant', content: '', searching: false };
+    setMessages(prev => [...prev, userMsg, assistantMsg]);
+
+    try {
+      const { reply, filters } = await sendChatMessage(query, apiHistory());
+      updateMessage(assistantId, { content: reply });
+      if (filters) {
+        updateMessage(assistantId, { searching: true, searchProgress: { done: 0, total: 0 } });
+        const results = await runSearch(
+          filters, programs, channels,
+          (done, total) => updateMessage(assistantId, { searchProgress: { done, total } }),
+          days
+        );
+        updateMessage(assistantId, { results, searching: false });
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Nieznany błąd';
+      updateMessage(assistantId, { content: `Przepraszam, wystąpił błąd: ${msg}`, error: true, searching: false });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
   };
@@ -304,7 +342,7 @@ export function AIChatModal({ onClose }: Props) {
           {messages.length === 1 && !loading && (
             <SuggestionsPanel
               suggestions={chatSuggestions}
-              onSelect={(s) => { setInput(s); inputRef.current?.focus(); }}
+              onSelect={(s) => { setPendingShortcutQuery(s); }}
               onSave={setChatSuggestions}
             />
           )}
@@ -319,6 +357,44 @@ export function AIChatModal({ onClose }: Props) {
 
           <div ref={messagesEndRef} />
         </div>
+
+        {/* Suwak dni — pojawia się po kliknięciu skrótu */}
+        {pendingShortcutQuery !== null && (
+          <div className="flex-shrink-0 px-4 py-3 bg-violet-50 dark:bg-violet-900/20 border-t border-violet-200 dark:border-violet-800">
+            <p className="text-sm font-semibold text-violet-700 dark:text-violet-300 mb-3">
+              Na ile dni w przód przeszukać program TV?
+            </p>
+            <div className="flex items-center gap-3 mb-3">
+              <span className="text-xs text-gray-400 flex-shrink-0">1</span>
+              <input
+                type="range"
+                min={1}
+                max={12}
+                value={sliderDays}
+                onChange={e => setSliderDays(Number(e.target.value))}
+                className="flex-1 accent-violet-600 cursor-pointer"
+              />
+              <span className="text-xs text-gray-400 flex-shrink-0">12</span>
+              <span className="text-sm font-bold text-violet-600 dark:text-violet-400 w-16 text-right flex-shrink-0">
+                {sliderDays} {sliderDays === 1 ? 'dzień' : 'dni'}
+              </span>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setPendingShortcutQuery(null)}
+                className="flex-1 py-2.5 rounded-xl border border-gray-300 dark:border-slate-600 text-sm text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors"
+              >
+                Anuluj
+              </button>
+              <button
+                onClick={() => handleSendShortcut(pendingShortcutQuery, sliderDays)}
+                className="flex-[2] py-2.5 rounded-xl bg-violet-600 text-white text-sm font-semibold hover:bg-violet-700 active:scale-95 transition-all"
+              >
+                Szukaj →
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Input */}
         <div className="flex-shrink-0 px-4 pt-3 border-t border-gray-100 dark:border-slate-800"
