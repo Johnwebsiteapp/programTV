@@ -438,7 +438,7 @@ async function searchFilmweb(title) {
 app.get('/api/filmweb/cinema', async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
 
-  const CINEMA_CACHE_KEY = '__cinema_v8__';
+  const CINEMA_CACHE_KEY = '__cinema_v9__';
   const CINEMA_CACHE_TTL = 6 * 60 * 60 * 1000;
   const cached = filmwebCache.get(CINEMA_CACHE_KEY);
   if (cached && Date.now() - cached.fetchedAt < CINEMA_CACHE_TTL) {
@@ -508,13 +508,15 @@ app.get('/api/filmweb/cinema', async (req, res) => {
       details.push(...batchResults.filter(Boolean));
     }
 
-    // Tylko filmy z bieżącego roku — parseInt obsługuje zarówno string jak i number
-    const currentYear = new Date().getFullYear();
-    const films = details.filter(f => parseInt(f.year) === currentYear).sort((a, b) => {
+    // Sortuj: 2026 pierwsze, potem 2025 — w każdej grupie premiery przed resztą, potem ocena
+    const films = details.sort((a, b) => {
+      const aYear = parseInt(a.year) || 0;
+      const bYear = parseInt(b.year) || 0;
+      if (bYear !== aYear) return bYear - aYear;           // nowszy rok wyżej
       const aPrem = premiereIds.has(a.id) ? 1 : 0;
       const bPrem = premiereIds.has(b.id) ? 1 : 0;
-      if (bPrem !== aPrem) return bPrem - aPrem;
-      return (b.rate ?? 0) - (a.rate ?? 0);
+      if (bPrem !== aPrem) return bPrem - aPrem;           // premiera wyżej
+      return (b.rate ?? 0) - (a.rate ?? 0);               // lepsza ocena wyżej
     });
 
     filmwebCache.set(CINEMA_CACHE_KEY, { data: films, fetchedAt: Date.now() });
