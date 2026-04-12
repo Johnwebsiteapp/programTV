@@ -370,7 +370,7 @@ function ChatBubble({ message, onOpenProgram }: {
         }
       </div>
 
-      <div className={clsx('max-w-[85%] flex flex-col gap-2', isUser ? 'items-end' : 'items-start')}>
+      <div className={clsx('flex flex-col gap-2', isUser ? 'items-end max-w-[85%]' : 'items-start w-full')}>
         {/* Tekst wiadomości */}
         {message.content && (
           <div className={clsx(
@@ -378,8 +378,8 @@ function ChatBubble({ message, onOpenProgram }: {
             isUser
               ? 'bg-violet-600 text-white rounded-tr-sm'
               : message.error
-              ? 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 rounded-tl-sm'
-              : 'bg-gray-100 dark:bg-slate-800 text-gray-900 dark:text-gray-100 rounded-tl-sm'
+              ? 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 rounded-tl-sm max-w-[85%]'
+              : 'bg-gray-100 dark:bg-slate-800 text-gray-900 dark:text-gray-100 rounded-tl-sm max-w-[85%]'
           )}>
             {message.error && <AlertCircle size={13} className="inline mr-1.5" />}
             {message.content.split('\n').map((line, i) => (
@@ -499,7 +499,7 @@ function SearchResults({ results, onOpen }: {
               {/* Karta tytułu */}
               <button
                 onClick={() => toggleTitle(title)}
-                className="w-full text-left px-3.5 py-2.5 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors flex items-start gap-2.5"
+                className="w-full text-left px-4 py-3.5 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors flex items-start gap-3"
               >
                 <span className="text-lg flex-shrink-0 mt-0.5">{channel.logoEmoji}</span>
                 <div className="flex-1 min-w-0">
@@ -515,7 +515,7 @@ function SearchResults({ results, onOpen }: {
                         )}
                         {filmweb.year && <span className="text-sm text-gray-400">{filmweb.year}</span>}
                         {filmweb.genres.slice(0, 2).map(g => (
-                          <span key={g} className="text-xs px-2 py-0.5 bg-violet-50 dark:bg-violet-900/20 text-violet-700 dark:text-violet-300 rounded-full capitalize">{g}</span>
+                          <span key={g} className="text-sm px-2.5 py-1 bg-violet-50 dark:bg-violet-900/20 text-violet-700 dark:text-violet-300 rounded-full capitalize font-medium">{g}</span>
                         ))}
                         <a
                           href={filmwebLink(filmweb)}
