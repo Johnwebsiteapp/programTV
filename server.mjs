@@ -45,6 +45,7 @@ function getPolandDateStr(dayOffset = 0) {
 const CHANNEL_ONET_SLUGS = {
   tvp1:             'tvp-1-321',
   tvp2:             'tvp-2-323',
+  tvphd:            'tvp-hd-101',
   tvn:              'tvn-357',
   polsat:           'polsat-38',
   ttv:              'ttv-33',
@@ -56,6 +57,7 @@ const CHANNEL_ONET_SLUGS = {
   axn:              'axn-249',
   fox:              'fox-127',
   comedycentral:    'comedy-central-63',
+  warnertv:         'tnt-72',
   hbo:              'hbo-23',
   hbo2:             'hbo2-24',
   hbo3:             'hbo-3-25',
