@@ -3,7 +3,7 @@
 // ============================================================
 
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { X, Send, Bot, User, Star, Tv, Loader2, AlertCircle, ExternalLink, ChevronDown, ChevronUp, Clock, Plus, Trash2, Check } from 'lucide-react';
+import { X, Send, Bot, User, Star, Tv, Loader2, AlertCircle, ExternalLink, ChevronDown, ChevronUp, Clock, Plus, Trash2, Check, Pencil } from 'lucide-react';
 import { useAppStore, ChatShortcut } from '../../store/useAppStore';
 import { batchSearchFilmweb, FilmwebData } from '../../api/filmwebApi';
 import { sendChatMessage, ChatMessage, ChatFilters } from '../../api/chatApi';
@@ -707,9 +707,12 @@ function SuggestionsPanel({ suggestions, onSelect, onSave }: {
   const [draftQuery, setDraftQuery] = useState('');
   const [draftLabel, setDraftLabel] = useState('');
   const [editMode, setEditMode] = useState(false);
+  const [editingIdx, setEditingIdx] = useState<number | null>(null);
+  const [editQuery, setEditQuery] = useState('');
+  const [editLabel, setEditLabel] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const startAdding = () => { setStep('query'); setDraftQuery(''); setDraftLabel(''); setEditMode(false); };
+  const startAdding = () => { setStep('query'); setDraftQuery(''); setDraftLabel(''); setEditMode(false); setEditingIdx(null); };
   const cancel = () => { setStep(null); setDraftQuery(''); setDraftLabel(''); };
 
   const handleQueryNext = () => {
@@ -728,6 +731,25 @@ function SuggestionsPanel({ suggestions, onSelect, onSave }: {
 
   const handleDelete = (idx: number) => {
     onSave(normalized.filter((_, i) => i !== idx));
+    if (editingIdx === idx) setEditingIdx(null);
+  };
+
+  const startEditing = (idx: number) => {
+    setEditingIdx(idx);
+    setEditQuery(normalized[idx].query);
+    setEditLabel(normalized[idx].label);
+  };
+
+  const cancelEditing = () => setEditingIdx(null);
+
+  const saveEditing = () => {
+    if (editingIdx === null) return;
+    const query = editQuery.trim();
+    const label = editLabel.trim() || query;
+    if (!query) return;
+    const updated = normalized.map((s, i) => i === editingIdx ? { label, query } : s);
+    onSave(updated);
+    setEditingIdx(null);
   };
 
   return (
@@ -738,7 +760,7 @@ function SuggestionsPanel({ suggestions, onSelect, onSave }: {
         </p>
         {normalized.length > 0 && (
           <button
-            onClick={() => setEditMode(e => !e)}
+            onClick={() => { setEditMode(e => !e); setEditingIdx(null); }}
             className={clsx(
               'text-[11px] font-semibold px-2 py-0.5 rounded-full transition-colors',
               editMode
@@ -752,25 +774,72 @@ function SuggestionsPanel({ suggestions, onSelect, onSave }: {
       </div>
 
       {normalized.map((s, idx) => (
-        <div key={idx} className="flex items-center gap-2">
-          <button
-            onClick={() => !editMode && onSelect(s.query)}
-            className={clsx(
-              'flex-1 text-left text-sm px-3.5 py-2.5 rounded-2xl rounded-tl-sm border transition-colors',
-              editMode
-                ? 'bg-gray-100 dark:bg-slate-800 text-gray-400 border-gray-200 dark:border-slate-700 cursor-default'
-                : 'bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-slate-700 hover:bg-violet-50 dark:hover:bg-violet-900/20 hover:text-violet-700 dark:hover:text-violet-300 hover:border-violet-300 dark:hover:border-violet-700'
-            )}
-          >
-            {s.label}
-          </button>
-          {editMode && (
+        <div key={idx} className="flex flex-col gap-1.5">
+          <div className="flex items-center gap-2">
             <button
-              onClick={() => handleDelete(idx)}
-              className="w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30 text-red-500 hover:bg-red-200 transition-colors"
+              onClick={() => !editMode && onSelect(s.query)}
+              className={clsx(
+                'flex-1 text-left text-sm px-3.5 py-2.5 rounded-2xl rounded-tl-sm border transition-colors',
+                editMode
+                  ? 'bg-gray-100 dark:bg-slate-800 text-gray-400 border-gray-200 dark:border-slate-700 cursor-default'
+                  : 'bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-slate-700 hover:bg-violet-50 dark:hover:bg-violet-900/20 hover:text-violet-700 dark:hover:text-violet-300 hover:border-violet-300 dark:hover:border-violet-700'
+              )}
             >
-              <Trash2 size={14} />
+              {s.label}
             </button>
+            {editMode && (
+              <>
+                <button
+                  onClick={() => editingIdx === idx ? cancelEditing() : startEditing(idx)}
+                  className={clsx(
+                    'w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-full transition-colors',
+                    editingIdx === idx
+                      ? 'bg-violet-100 dark:bg-violet-900/30 text-violet-600'
+                      : 'bg-gray-100 dark:bg-slate-700 text-gray-500 hover:bg-violet-100 hover:text-violet-600'
+                  )}
+                >
+                  <Pencil size={13} />
+                </button>
+                <button
+                  onClick={() => handleDelete(idx)}
+                  className="w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30 text-red-500 hover:bg-red-200 transition-colors"
+                >
+                  <Trash2 size={14} />
+                </button>
+              </>
+            )}
+          </div>
+
+          {/* Panel edycji skrótu */}
+          {editingIdx === idx && (
+            <div className="flex flex-col gap-2 bg-violet-50 dark:bg-violet-900/20 rounded-2xl p-3 border border-violet-200 dark:border-violet-800">
+              <p className="text-xs font-semibold text-violet-700 dark:text-violet-300">Edytuj zapytanie:</p>
+              <textarea
+                autoFocus
+                value={editQuery}
+                onChange={e => setEditQuery(e.target.value)}
+                maxLength={500}
+                rows={4}
+                className="w-full text-sm px-3 py-2.5 rounded-xl border-2 border-violet-400 bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 outline-none resize-none leading-relaxed"
+              />
+              <p className="text-xs font-semibold text-violet-700 dark:text-violet-300 -mb-1">Nazwa skrótu (widoczna na przycisku):</p>
+              <div className="flex items-center gap-2">
+                <input
+                  value={editLabel}
+                  onChange={e => setEditLabel(e.target.value)}
+                  maxLength={60}
+                  placeholder="Zostaw puste żeby użyć zapytania"
+                  className="flex-1 text-sm px-3 py-2 rounded-xl border-2 border-violet-400 bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 outline-none"
+                />
+                <button
+                  onClick={saveEditing}
+                  disabled={!editQuery.trim()}
+                  className="w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-full bg-violet-600 text-white hover:bg-violet-700 disabled:opacity-40 transition-colors"
+                >
+                  <Check size={16} />
+                </button>
+              </div>
+            </div>
           )}
         </div>
       ))}
